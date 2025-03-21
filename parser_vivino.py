@@ -141,6 +141,16 @@ def get_basic_info(soup):
     return wine_info if wine_info else {"Данные": "Не найдены"}
 
 
+def get_rating(soup):
+    """Парсинг рейтинга вина"""
+    try:
+        rating = float(soup.find("div", class_=re.compile(r"^vivinoRating_averageValue")).text)
+        return rating if rating else "Рейтинг не найден"
+    except AttributeError:
+        print("Рейтинг не найден")
+        return "Рейтинг не найден"
+
+
 wine_name = "6 Anime Puglia"
 wine_url = search_vivino(wine_name)
 if wine_url:
@@ -150,4 +160,5 @@ if wine_url:
             soup = BeautifulSoup(file, "lxml")
         wine_info = {}
         wine_info.update(get_basic_info(soup))
+        wine_info["Rating"] = get_rating(soup)  # Рейтинг
 pprint(wine_info, sort_dicts=False)
