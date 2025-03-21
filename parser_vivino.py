@@ -151,6 +151,19 @@ def get_rating(soup):
         return "Рейтинг не найден"
 
 
+def get_food_pairing(soup):
+    """Парсинг подходящих блюд"""
+    try:
+        food_container = soup.find("div", class_=re.compile(r"^foodPairing__foodContainer"))
+        if food_container:
+            foods = [el.text.strip() for el in food_container.find_all("div") if el.text]
+            return foods if foods else "Подходящие блюда не указаны."
+        return "Подходящие блюда не указаны."
+    except Exception as e:
+        print(f"Ошибка при парсинге еды: {e}")
+        return "Ошибка при получении информации о еде"
+
+
 wine_name = "6 Anime Puglia"
 wine_url = search_vivino(wine_name)
 if wine_url:
@@ -159,6 +172,8 @@ if wine_url:
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
         wine_info = {}
-        wine_info.update(get_basic_info(soup))
-        wine_info["Rating"] = get_rating(soup)  # Рейтинг
+        wine_info.update(get_basic_info(soup)) # Основная информация
+        wine_info["Rating"] = get_rating(soup) # Рейтинг
+        wine_info["Food Pairing"] = get_food_pairing(soup)  # Сочетаемая еда
+
 pprint(wine_info, sort_dicts=False)
