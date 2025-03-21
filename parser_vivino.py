@@ -103,9 +103,8 @@ def save_html_page(wine_name, wine_url, folder="cached_pages"):
         return file_path
 
     try:
-        response = requests.get(url=wine_url, headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"})
+        headers = {"User-Agent": random.choice(USER_AGENTS)}
+        response = requests.get(url=wine_url, headers=headers, timeout=10)
         response.raise_for_status()  # Проверка, нет ли ошибки запроса
 
         with open(file_path, "w", encoding="utf-8") as file:
@@ -119,7 +118,36 @@ def save_html_page(wine_name, wine_url, folder="cached_pages"):
         return None
 
 
+def get_basic_info(soup):
+    """Парсинг основных характеристик вина (винодельня, виноград, регион и т. д.)"""
+    wine_info = {}
+    try:
+        table = soup.find("table")
+        rows = table.find_all("tr") if table else []
+
+        for r in rows:
+            try:
+                key = r.find("span", class_=re.compile(r"^wineFacts__headerLabel")).text
+                values = [el.text.strip() for el in r.find_all("a")]
+                if not values:
+                    values = [r.find("td").text.strip()]
+                wine_info[key] = values if len(values) > 1 else values[0]
+            except AttributeError:
+                print(f"Ошибка парсинга строки: {r}")
+
+    except Exception as e:
+        print(f"Ошибка при парсинге основных данных: {e}")
+
+    return wine_info if wine_info else {"Данные": "Не найдены"}
+
+
 wine_name = "6 Anime Puglia"
 wine_url = search_vivino(wine_name)
 if wine_url:
     file_path = save_html_page(wine_name, wine_url)
+    if file_path:
+        with open(file_path, "r", encoding="utf-8") as file:
+            soup = BeautifulSoup(file, "lxml")
+        wine_info = {}
+        wine_info.update(get_basic_info(soup))
+pprint(wine_info, sort_dicts=False)
