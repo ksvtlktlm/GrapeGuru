@@ -5,8 +5,6 @@ import random
 import os
 
 from bs4 import BeautifulSoup
-import requests
-import lxml
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -29,8 +27,19 @@ USER_AGENTS = [
     "Mozilla/5.0 (iPad; CPU OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1",
 ]
 
+def accept_cookies(driver):
+    """Принимает куки, если кнопка есть."""
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))  # Принятие куки
+        ).click()
+        print("Куки приняты")
+    except:
+        print("Нет кнопки согласия на куки или уже приняты")
+
 
 def get_chrome_options(headless=False):
+    """Создаёт и настраивает объект ChromeOptions для Selenium WebDriver."""
     options = Options()
     if headless:
         options.add_argument("--headless=new")
@@ -45,10 +54,10 @@ def get_chrome_options(headless=False):
 
 
 def setup_driver(headless=False):
+    """Создаёт и настраивает экземпляр Selenium WebDriver для Chrome."""
     service = Service(CHROME_DRIVER_PATH)
     options = get_chrome_options(headless)
     return webdriver.Chrome(service=service, options=options)
-
 
 
 def save_html_with_scroll(wine_name, url, headless=False, folder="cached_pages"):
@@ -67,13 +76,7 @@ def save_html_with_scroll(wine_name, url, headless=False, folder="cached_pages")
     try:
         with setup_driver(headless=headless) as driver:
             driver.get(url)
-            try:
-                WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))  # Принятие куки
-                ).click()
-                print("Куки приняты")
-            except:
-                print("Нет кнопки согласия на куки или уже приняты")
+            accept_cookies(driver)
 
             # Скроллинг до конца страницы
             last_height = driver.execute_script("return document.body.scrollHeight")
@@ -99,19 +102,14 @@ def save_html_with_scroll(wine_name, url, headless=False, folder="cached_pages")
 
 
 def search_vivino(wine_name, attempts=5):
+    """Ищет вино на сайте Vivino по названию и возвращает ссылку на его страницу."""
     for attempt in range(1, attempts + 1):
         print(f"Попытка {attempt} поиска вина '{wine_name}'")
         try:
             with setup_driver(headless=False) as driver:
                 driver.get("https://www.vivino.com/")
 
-                try:
-                    WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button")) # Принятие куки
-                    ).click()
-                    print("Куки приняты")
-                except:
-                    print("Нет кнопки согласия на куки или уже приняты")
+                accept_cookies(driver)
 
                 search_box = WebDriverWait(driver, 10).until(
                     EC.visibility_of_element_located((By.TAG_NAME, "input"))
@@ -253,15 +251,7 @@ def get_wine_tasting_notes(url, headless=False):
 
     with setup_driver(headless=headless) as driver:
         driver.get(url)
-        time.sleep(1)
-        # Нажать кнопку "Accept Cookies", если она есть
-        try:
-            accept_button = driver.find_element(By.ID, "didomi-notice-agree-button")
-            accept_button.click()
-            time.sleep(1)
-            print("Кнопка 'Agree' нажата.")
-        except:
-            print("Куки уже приняты или кнопка не найдена.")
+        accept_cookies(driver)
 
         slider_container = driver.find_element(By.XPATH, "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
 
@@ -308,9 +298,9 @@ def get_wine_tasting_notes(url, headless=False):
                 print("Просмотрены все карточки.")
                 return top_notes
 
-
+start_time = time.perf_counter()
 wine_info = {}
-wine_name = "Roda I Reserva"
+wine_name = "La Rioja Alta"
 wine_url = search_vivino(wine_name)
 if wine_url:
     file_path = save_html_with_scroll(wine_name, wine_url)
@@ -327,3 +317,5 @@ if wine_url:
 else:
     print("Вино не найдено!")
 pprint(wine_info, sort_dicts=False)
+end_time = time.perf_counter()
+print(f"Время выполнения: {end_time - start_time:.4f} секунд")
