@@ -86,3 +86,40 @@ def search_vivino(wine_name, attempts=5):
 
     print("Не удалось получить ссылку на вино после всех попыток.")
     return None
+
+
+def save_html_page(wine_name, wine_url, folder="cached_pages"):
+    """
+    Сохраняет HTML-страницу локально, чтобы избежать повторных запросов.
+    :param wine_name: Название вина (используется для имени файла)
+    :param wine_url: URL страницы вина на Vivino
+    :param folder: Папка, куда сохранять HTML
+    """
+    os.makedirs(folder, exist_ok=True)
+    file_path = os.path.join(folder, f"{wine_name.replace(' ', '_')}.html")
+
+    if os.path.exists(file_path):
+        print(f"Страница уже сохранена: {file_path}")
+        return file_path
+
+    try:
+        response = requests.get(url=wine_url, headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"})
+        response.raise_for_status()  # Проверка, нет ли ошибки запроса
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(response.text)
+
+        print(f"HTML-страница сохранена: {file_path}")
+        return file_path
+
+    except Exception as e:
+        print(f"Ошибка при сохранении страницы: {e}")
+        return None
+
+
+wine_name = "6 Anime Puglia"
+wine_url = search_vivino(wine_name)
+if wine_url:
+    file_path = save_html_page(wine_name, wine_url)
