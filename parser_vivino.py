@@ -191,9 +191,6 @@ def get_taste_profile(soup):
     taste_profile = {}
     try:
         taste_table = soup.find("table", class_=re.compile(r"^tasteStructure"))
-        print("taste_table есть")
-        print()
-        print(taste_table)
         rows = taste_table.find_all("tr", class_=re.compile(r"^tasteStructure__")) if taste_table else []
 
         for row in rows:
@@ -240,8 +237,19 @@ def get_taste_profile(soup):
     return taste_profile if taste_profile else "Не найден"
 
 
+def get_wine_image(soup):
+    """Парсинг изображения вина"""
+    try:
+        img_container = soup.find("picture", class_=re.compile(r"^wineLabel-module__picture"))
+        img_url = img_container.next.get("srcset").split(",")[0]
+        return img_url if img_url else "Изображение не найдено"
+    except Exception as e:
+        print(f"Ошибка при парсинге изображения: {e}")
+        print("Ошибка получения изображения", e)
+
+
 wine_info = {}
-wine_name = "6 Anime Puglia"
+wine_name = "Roda I Reserva"
 wine_url = search_vivino(wine_name)
 if wine_url:
     file_path = save_html_with_scroll(wine_name, wine_url)
@@ -252,5 +260,7 @@ if wine_url:
         wine_info["Rating"] = get_rating(soup) # Рейтинг
         wine_info["Food Pairing"] = get_food_pairing(soup)  # Сочетаемая еда
         wine_info["Taste Profile"] = get_taste_profile(soup)  # Вкусовой профиль
+        wine_info["Image"] = get_wine_image(soup)  # Картинка вина
+
 
 pprint(wine_info, sort_dicts=False)
