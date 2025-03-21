@@ -175,3 +175,6 @@ cython_debug/
 
 user_logs.txt
 .idea/
+cached_pages
+
+test.py
