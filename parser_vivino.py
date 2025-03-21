@@ -18,6 +18,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 
+
 CHROME_DRIVER_PATH = ChromeDriverManager().install()
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -36,6 +37,9 @@ def get_chrome_options(headless=False):
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--start-maximized")
     options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
     return options
 
@@ -44,6 +48,54 @@ def setup_driver(headless=False):
     service = Service(CHROME_DRIVER_PATH)
     options = get_chrome_options(headless)
     return webdriver.Chrome(service=service, options=options)
+
+
+
+def save_html_with_scroll(wine_name, url, headless=False, folder="cached_pages"):
+    """
+    Прокручивает страницу с помощью Selenium, сохраняет HTML и возвращает путь к файлу.
+    Если файл уже существует — повторно не загружает.
+    """
+    os.makedirs(folder, exist_ok=True)
+    safe_name = wine_name.strip().replace(" ", "_").replace("/", "_")
+    file_path = os.path.join(folder, f"{safe_name}.html")
+
+    if os.path.exists(file_path):
+        print(f"Страница уже сохранена: {file_path}")
+        return file_path
+
+    try:
+        with setup_driver(headless=headless) as driver:
+            driver.get(url)
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))  # Принятие куки
+                ).click()
+                print("Куки приняты")
+            except:
+                print("Нет кнопки согласия на куки или уже приняты")
+
+            # Скроллинг до конца страницы
+            last_height = driver.execute_script("return document.body.scrollHeight")
+            while True:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(2)
+                new_height = driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    break
+                last_height = new_height
+
+            page_source = driver.page_source # Полная html страница
+
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write(page_source)
+
+        print(f"HTML-страница сохранена: {file_path}")
+        return file_path
+
+    except Exception as e:
+        print(f"Ошибка при сохранении страницы с прокруткой: {e}")
+        return None
 
 
 def search_vivino(wine_name, attempts=5):
@@ -86,36 +138,6 @@ def search_vivino(wine_name, attempts=5):
 
     print("Не удалось получить ссылку на вино после всех попыток.")
     return None
-
-
-def save_html_page(wine_name, wine_url, folder="cached_pages"):
-    """
-    Сохраняет HTML-страницу локально, чтобы избежать повторных запросов.
-    :param wine_name: Название вина (используется для имени файла)
-    :param wine_url: URL страницы вина на Vivino
-    :param folder: Папка, куда сохранять HTML
-    """
-    os.makedirs(folder, exist_ok=True)
-    file_path = os.path.join(folder, f"{wine_name.replace(' ', '_')}.html")
-
-    if os.path.exists(file_path):
-        print(f"Страница уже сохранена: {file_path}")
-        return file_path
-
-    try:
-        headers = {"User-Agent": random.choice(USER_AGENTS)}
-        response = requests.get(url=wine_url, headers=headers, timeout=10)
-        response.raise_for_status()  # Проверка, нет ли ошибки запроса
-
-        with open(file_path, "w", encoding="utf-8") as file:
-            file.write(response.text)
-
-        print(f"HTML-страница сохранена: {file_path}")
-        return file_path
-
-    except Exception as e:
-        print(f"Ошибка при сохранении страницы: {e}")
-        return None
 
 
 def get_basic_info(soup):
@@ -164,16 +186,71 @@ def get_food_pairing(soup):
         return "Ошибка при получении информации о еде"
 
 
+def get_taste_profile(soup):
+    """Парсинг вкусового профиля вина"""
+    taste_profile = {}
+    try:
+        taste_table = soup.find("table", class_=re.compile(r"^tasteStructure"))
+        print("taste_table есть")
+        print()
+        print(taste_table)
+        rows = taste_table.find_all("tr", class_=re.compile(r"^tasteStructure__")) if taste_table else []
+
+        for row in rows:
+            try:
+                td_tags = row.find_all("td")
+                left_label = td_tags[0].text.strip()
+                right_label = td_tags[-1].text.strip()
+
+                progress_span = td_tags[1].find("span", class_=re.compile(r"^indicatorBar__progress"))
+                if progress_span:
+                    style = progress_span.get("style", "")
+                    style_values = {prop.split(":")[0].strip(): prop.split(":")[1].strip().replace("%", "").replace("px", "")
+                                    for prop in style.split(";") if ":" in prop}
+
+                    width = float(style_values.get("width", 0))
+                    left = float(style_values.get("left", 50))
+
+                    position = left + (width / 2)
+
+                    char_name = f"{left_label} - {right_label}"
+                    if position <= 10:
+                        result = f"Полностью {left_label} ({round(position, 1)}%)"
+                    elif position <= 30:
+                        result = f"Скорее {left_label}, но с лёгким уклоном ({round(position, 1)}%)"
+                    elif position <= 45:
+                        result = f"Чуть ближе к {left_label}, но почти сбалансировано ({round(position, 1)}%)"
+                    elif position <= 55:
+                        result = "Сбалансированное"
+                    elif position <= 70:
+                        result = f"Немного {right_label}, но ещё умеренно ({round(position, 1)}%)"
+                    elif position <= 90:
+                        result = f"Скорее {right_label}, выраженное ({round(position, 1)}%)"
+                    else:
+                        result = f"Полностью {right_label} ({round(position, 1)}%)"
+
+                    taste_profile[char_name] = result
+
+            except Exception as e:
+                print(f"Ошибка при обработке характеристики вкуса: {e}")
+
+    except Exception as e:
+        print(f"Ошибка при парсинге вкусового профиля: {e}")
+
+    return taste_profile if taste_profile else "Не найден"
+
+
+wine_info = {}
 wine_name = "6 Anime Puglia"
 wine_url = search_vivino(wine_name)
 if wine_url:
-    file_path = save_html_page(wine_name, wine_url)
+    file_path = save_html_with_scroll(wine_name, wine_url)
     if file_path:
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
-        wine_info = {}
         wine_info.update(get_basic_info(soup)) # Основная информация
         wine_info["Rating"] = get_rating(soup) # Рейтинг
         wine_info["Food Pairing"] = get_food_pairing(soup)  # Сочетаемая еда
+        wine_info["Taste Profile"] = get_taste_profile(soup)  # Вкусовой профиль
 
 pprint(wine_info, sort_dicts=False)
