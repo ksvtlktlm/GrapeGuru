@@ -7,6 +7,7 @@ import logging
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.common import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -16,7 +17,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import pickle
-
 
 if not os.path.exists("chromedriver"):
     CHROME_DRIVER_PATH = ChromeDriverManager().install()
@@ -40,7 +40,7 @@ def setup_driver(headless=False):
     """Создаёт и настраивает экземпляр Selenium WebDriver для Chrome."""
     try:
         service = Service(CHROME_DRIVER_PATH)
-        options = get_chrome_options()
+        options = get_chrome_options(headless=headless)
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
         driver.implicitly_wait(5)
@@ -82,42 +82,68 @@ def get_chrome_options(headless=False, disable_js=False, disable_images=True):
 
 
 def save_cookies(driver, path="cookies.pkl"):
-    """Сохраняет куки"""
-    with open(path, "wb") as file:
-        pickle.dump(driver.get_cookies(), file)
+    """Сохраняет куки в файл с обработкой ошибок"""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as file:
+            pickle.dump(driver.get_cookies(), file)
+        print(f"Cookies сохранены в {path}")
+    except Exception as e:
+        print(f"Ошибка сохранения cookies: {str(e)}")
 
 
 def load_cookies(driver, path="cookies.pkl"):
-    """Загружает куки"""
+    """Загружает куки с валидацией"""
     try:
+        driver.get("https://www.vivino.com/")
+
         with open(path, "rb") as file:
             cookies = pickle.load(file)
+            if not isinstance(cookies, list):
+                raise ValueError("Неверный формат куки")
+
             for cookie in cookies:
-                driver.add_cookie(cookie)
-        print("Cookies загружены")
+                if 'name' in cookie and 'value' in cookie:
+                    driver.add_cookie(cookie)
+                else:
+                    print(f"Пропущен невалидный cookie: {cookie}")
+        print(f"Успешно загружено {len(cookies)} cookies")
+        return True
+
     except FileNotFoundError:
-        print("Файл cookies не найден")
+        print(f"Файл {path} не найден")
+        return False
+
+    except Exception as e:
+        print(f"Ошибка загрузки cookies: {str(e)}")
+        return False
 
 
 def accept_cookies(driver):
     """Принимает куки, если кнопка есть."""
     try:
+        before_cookies = driver.get_cookies()
         WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))  # Принятие куки
+            EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))
         ).click()
+        WebDriverWait(driver, 10).until(
+            lambda d: d.get_cookies() != before_cookies
+        )  # Ожидание обновления куки
         save_cookies(driver)
         print("Куки приняты и сохранены")
+        return True
     except Exception as e:
         print(f"Ошибка при принятии куки: {e}")
+        return False
 
 
-def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages"):
+def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages", max_scroll_attempts=5):
     """
     Прокручивает страницу с помощью Selenium, сохраняет HTML и возвращает путь к файлу.
     Если файл уже существует — повторно не загружает.
     """
     os.makedirs(folder, exist_ok=True)
-    safe_name = wine_name.strip().replace(" ", "_").replace("/", "_")
+    safe_name = re.sub(r'[\\/*?:"<>|]', "_", wine_name.strip())
     file_path = os.path.join(folder, f"{safe_name}.html")
 
     if os.path.exists(file_path):
@@ -125,73 +151,96 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         return file_path
 
     try:
+        driver.set_page_load_timeout(30)
         driver.get(url)
-        load_cookies(driver)
-        accept_cookies(driver)
+
+        if not driver.get_cookies():  # Если cookies пустые
+            load_cookies(driver)
+            driver.refresh()  # Обновление страницы для активации куки
+            if not driver.get_cookies():
+                print("Предупреждение: Cookies не загрузились после refresh")
 
         # Скроллинг до конца страницы
+        scroll_attempt = 0
         last_height = driver.execute_script("return document.body.scrollHeight")
-        while True:
+        while scroll_attempt < max_scroll_attempts:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
+            time.sleep(1 + random.random())
             new_height = driver.execute_script("return document.body.scrollHeight")
             if new_height == last_height:
                 break
+
             last_height = new_height
+            scroll_attempt += 1
 
         page_source = driver.page_source  # Полная html страница
+        if not page_source or len(page_source) < 500:  # Минимальный размер
+            raise ValueError("Получен пустой или слишком маленький HTML")
 
-        with open(file_path, "w", encoding="utf-8") as file:
+        with open(file_path, "w", encoding="utf-8", errors="replace") as file:
             file.write(page_source)
 
         print(f"HTML-страница сохранена: {file_path}")
         return file_path
 
+    except TimeoutException:
+        print(f"[Timeout] Не удалось загрузить страницу: {url}")
+        return None
+
     except Exception as e:
-        print(f"Ошибка при сохранении страницы с прокруткой: {e}")
+        print(f"[Error] Ошибка при обработке {url}: {str(e)}")
+        if os.path.exists(file_path):
+            os.remove(file_path)  # Удаление неполного файла
         return None
 
 
-def search_vivino(wine_name, driver, attempts=5):
+def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
     """
     Ищет вино на сайте Vivino по названию и возвращает ссылку на его страницу.
     Принимает уже созданный экземпляр Selenium WebDriver.
     """
+    SEARCH_INPUT_SELECTOR = "input[name='q']"
+    WINE_CARD_SELECTOR = "a[href^='/ES/en/wines/']"
+
     for attempt in range(1, attempts + 1):
-        print(f"Попытка {attempt} поиска вина '{wine_name}'")
+        print(f"Попытка {attempt}/{attempts} поиска '{wine_name}'")
         try:
+            driver.set_page_load_timeout(15)
             driver.get("https://www.vivino.com/")
-            accept_cookies(driver)
 
             search_box = WebDriverWait(driver, 10).until(
-                EC.visibility_of_element_located((By.TAG_NAME, "input")))
-            time.sleep(random.randint(2, 5))
-            search_box.send_keys(wine_name)  # Название вина вводится в поиск
-            time.sleep(random.randint(1, 3))
+                EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)),
+                message=f"Не найдено поле поиска за 10 сек (попытка {attempt})")
+
+            for char in wine_name: # Имитация ввода человеком
+                search_box.send_keys(char)
+                time.sleep(random.uniform(0.1, 0.3))
+            time.sleep(1)
             search_box.send_keys(Keys.RETURN)
             print("Название вина отправлено в поиск")
 
-            try:
-                WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, ".wine-card__content a"))
-                )
-                print("Вино обнаружено")
+            WebDriverWait(driver, search_timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, WINE_CARD_SELECTOR)),
+                message=f"Не найдены результаты за {search_timeout} сек")
 
-                first_wine = driver.find_element(By.CSS_SELECTOR, ".wine-card__content a")
-                wine_url = first_wine.get_attribute("href")
+            first_wine = driver.find_element(By.CSS_SELECTOR, WINE_CARD_SELECTOR)
+            wine_url = first_wine.get_attribute("href")
+            if wine_url and "vivino.com" in wine_url:
+                print(f"Успешно найдено вино: {wine_url}")
                 return wine_url
-
-            except Exception as e:
-                print(f"Не удалось найти карточку с вином: {e}")
-                driver.refresh()
-                continue
-
-        except Exception as e:
-            print(f"Ошибка при попытке {attempt}: {e}")
             driver.refresh()
-            time.sleep(random.randint(3, 5))
+            time.sleep(2)
 
-    print("Не удалось получить ссылку на вино после всех попыток.")
+        except TimeoutException as e:
+            print(f"Таймаут при поиске: {str(e)}")
+        except NoSuchElementException as e:
+            print(f"Элемент не найден: {str(e)}")
+        except Exception as e:
+            print(f"Неожиданная ошибка: {str(e)}")
+
+        time.sleep(3 * attempt) # Увеличение задержки между попытками
+
+    print(f"Поиск не удался после {attempts} попыток")
     return None
 
 
