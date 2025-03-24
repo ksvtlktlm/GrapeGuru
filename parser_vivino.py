@@ -212,7 +212,7 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
                 EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)),
                 message=f"Не найдено поле поиска за 10 сек (попытка {attempt})")
 
-            for char in wine_name: # Имитация ввода человеком
+            for char in wine_name:  # Имитация ввода человеком
                 search_box.send_keys(char)
                 time.sleep(random.uniform(0.1, 0.3))
             time.sleep(1)
@@ -238,7 +238,7 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
         except Exception as e:
             print(f"Неожиданная ошибка: {str(e)}")
 
-        time.sleep(3 * attempt) # Увеличение задержки между попытками
+        time.sleep(3 * attempt)  # Увеличение задержки между попытками
 
     print(f"Поиск не удался после {attempts} попыток")
     return None
@@ -246,25 +246,51 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
 
 def get_basic_info(soup):
     """Парсинг основных характеристик вина (винодельня, виноград, регион и т. д.)"""
-    info = {}
+    result = {}
     try:
-        table = soup.find("table")
-        rows = table.find_all("tr") if table else []
+        table = soup.find("table", class_=lambda x: x and x.startswith("wineFacts__wineFacts"))
+        if not table:
+            return {"Данные": "Не найдены"}
 
-        for r in rows:
+        for row in table.find_all("tr", attrs={"data-testid": "wineFactRow"}):
             try:
-                key = r.find("span", class_=re.compile(r"^wineFacts__headerLabel")).text
-                values = [el.text.strip() for el in r.find_all("a")]
-                if not values:
-                    values = [r.find("td").text.strip()]
-                    info[key] = values if len(values) > 1 else values[0]
-            except AttributeError:
-                print(f"Ошибка парсинга строки: {r}")
+                # Извлечение ключа (названия характеристики)
+                key_span = row.find("span", class_=lambda x: x and x.startswith("wineFacts__headerLabel"))
+                if not key_span:
+                    continue
+
+                key = key_span.get_text(strip=True)
+                if not key:
+                    continue
+
+                # Извлечение значения
+                value_cell = row.find("td", class_=lambda x: x and x.startswith("wineFacts__fact"))
+                if not value_cell:
+                    result[key] = None
+                    continue
+
+                # Обработка составных значений (регионы, виноград)
+                links = value_cell.find_all("a")
+                if links:
+                    if len(links) > 1:
+                        result[key] = [l.get_text(strip=True) for l in links] if key == "Grapes" else " / ".join(
+                            l.get_text(strip=True) for l in links)
+                    else:
+                        result[key] = links[0].get_text(strip=True)
+                else:
+                    # Обработка простого текста (Alcohol, Allergens и т.д.)
+                    text = value_cell.get_text(" ", strip=True)
+                    result[key] = text if text else None
+
+            except Exception as e:
+                print(f"Ошибка обработки строки '{key}': {str(e)}")
+                continue
 
     except Exception as e:
-        print(f"Ошибка при парсинге основных данных: {e}")
+        print(f"Ошибка парсинга таблицы: {str(e)}")
+        return {"Ошибка": str(e)}
 
-    return info if info else {"Данные": "Не найдены"}
+    return result if result else {"Данные": "Не найдены"}
 
 
 def get_rating(soup):
