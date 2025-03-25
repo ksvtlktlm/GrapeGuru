@@ -77,6 +77,7 @@ def get_chrome_options(headless=False, disable_js=False, disable_images=True):
     if prefs:
         options.add_experimental_option("prefs", prefs)
 
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.page_load_strategy = 'eager'
     return options
 
@@ -84,57 +85,81 @@ def get_chrome_options(headless=False, disable_js=False, disable_images=True):
 def save_cookies(driver, path="cookies.pkl"):
     """Сохраняет куки в файл с обработкой ошибок"""
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        cookies = driver.get_cookies()
+        if not cookies:
+            print("Нет куки для сохранения")
+            return False
+
         with open(path, "wb") as file:
             pickle.dump(driver.get_cookies(), file)
-        print(f"Cookies сохранены в {path}")
+        print("Куки сохранены")
+        time.sleep(1)
+        return True
     except Exception as e:
-        print(f"Ошибка сохранения cookies: {str(e)}")
+        print(f"Ошибка сохранения куки: {e}")
+        return False
 
 
 def load_cookies(driver, path="cookies.pkl"):
-    """Загружает куки с валидацией"""
-    try:
-        driver.get("https://www.vivino.com/")
+    """Загружает куки из файла."""
+    if not os.path.exists(path):
+        print("Файл куки не найден")
+        return False
 
+    try:
         with open(path, "rb") as file:
             cookies = pickle.load(file)
-            if not isinstance(cookies, list):
-                raise ValueError("Неверный формат куки")
-
             for cookie in cookies:
-                if 'name' in cookie and 'value' in cookie:
+                if "name" in cookie and "value" in cookie:
                     driver.add_cookie(cookie)
-                else:
-                    print(f"Пропущен невалидный cookie: {cookie}")
-        print(f"Успешно загружено {len(cookies)} cookies")
+        print("Куки загружены")
+        return True
+    except Exception as e:
+        print(f"Ошибка загрузки куки: {e}")
+        return False
+
+
+def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
+    """Принимает куки и сохраняет их в файл."""
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.didomi-popup-container"))
+        )
+
+        agree_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button#didomi-notice-agree-button"))
+        )
+
+        try:
+            agree_button.click()
+        except:
+            driver.execute_script("arguments[0].click();", agree_button)
+
+        WebDriverWait(driver, 10).until(
+            EC.invisibility_of_element_located((By.CSS_SELECTOR, "div.didomi-popup-container"))
+        )
+
+        print("Куки приняты и окно закрыто")
+        save_cookies(driver, path=cookie_path)
         return True
 
-    except FileNotFoundError:
-        print(f"Файл {path} не найден")
-        return False
-
-    except Exception as e:
-        print(f"Ошибка загрузки cookies: {str(e)}")
-        return False
-
-
-def accept_cookies(driver):
-    """Принимает куки, если кнопка есть."""
-    try:
-        before_cookies = driver.get_cookies()
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))
-        ).click()
-        WebDriverWait(driver, 10).until(
-            lambda d: d.get_cookies() != before_cookies
-        )  # Ожидание обновления куки
-        save_cookies(driver)
-        print("Куки приняты и сохранены")
+    except TimeoutException:
+        print("Окно куки не появилось — возможно, уже принято")
         return True
     except Exception as e:
         print(f"Ошибка при принятии куки: {e}")
         return False
+
+
+def setup_cookies(driver, cookie_path="cookies.pkl"):
+    """
+    Основная функция — загружает куки, если есть. Если нет — принимает и сохраняет.
+    """
+    if not load_cookies(driver, cookie_path):
+        print("Пробуем принять новые куки...")
+        accept_and_save_cookies(driver, cookie_path)
+    else:
+        driver.refresh()
 
 
 def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages", max_scroll_attempts=5):
@@ -194,13 +219,12 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         return None
 
 
-def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
+def search_vivino(wine_name, driver, attempts=5, search_timeout=40):
     """
     Ищет вино на сайте Vivino по названию и возвращает ссылку на его страницу.
     Принимает уже созданный экземпляр Selenium WebDriver.
     """
     SEARCH_INPUT_SELECTOR = "input[name='q']"
-    WINE_CARD_SELECTOR = "a[href^='/ES/en/wines/']"
 
     for attempt in range(1, attempts + 1):
         print(f"Попытка {attempt}/{attempts} поиска '{wine_name}'")
@@ -219,26 +243,30 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=20):
             search_box.send_keys(Keys.RETURN)
             print("Название вина отправлено в поиск")
 
-            WebDriverWait(driver, search_timeout).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, WINE_CARD_SELECTOR)),
-                message=f"Не найдены результаты за {search_timeout} сек")
 
-            first_wine = driver.find_element(By.CSS_SELECTOR, WINE_CARD_SELECTOR)
-            wine_url = first_wine.get_attribute("href")
-            if wine_url and "vivino.com" in wine_url:
-                print(f"Успешно найдено вино: {wine_url}")
-                return wine_url
-            driver.refresh()
-            time.sleep(2)
+            WebDriverWait(driver, search_timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")), message=f"Не удалось найти вино за {attempt} попыток.")
+
+            vintage_id = driver.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
+            wine_url = f"https://www.vivino.com/wines/{vintage_id}"
+
+            print(f"Успешно найдено вино: {wine_url}")
+            return wine_url
 
         except TimeoutException as e:
             print(f"Таймаут при поиске: {str(e)}")
         except NoSuchElementException as e:
             print(f"Элемент не найден: {str(e)}")
         except Exception as e:
-            print(f"Неожиданная ошибка: {str(e)}")
-
-        time.sleep(3 * attempt)  # Увеличение задержки между попытками
+            error_msg = str(e).lower()
+            print(f"Неожиданная ошибка: {error_msg}")
+            page_source = driver.page_source.lower()
+            if any(x in page_source for x in ["cloudflare", "captcha", "access denied"]):
+                print("Обнаружена система защиты - требуется ручное вмешательство")
+                break
+            elif "bot" in error_msg or "blocked" in error_msg:
+                print("Заблокировано антибот-системой")
+                break
 
     print(f"Поиск не удался после {attempts} попыток")
     return None
@@ -379,89 +407,91 @@ def get_wine_image(soup):
         print("Ошибка получения изображения", e)
 
 
-def get_wine_tasting_notes(url, driver, headless=False):
-    """Парсинг вкусовых нот с прокруткой карусели, возвращает топ-4 группы с поднотами."""
-    driver.get(url)
-    accept_cookies(driver)
-
-    slider_container = driver.find_element(By.XPATH,
-                                           "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
-
-    actions = ActionChains(driver)
-    actions.move_to_element(slider_container).perform()
-
-    notes_dict = {}
-    while True:
-        cards = slider_container.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
-        for card in cards:
-            try:
-                group_name_el = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]")
-                group_name = group_name_el.text.strip()  # Название группы нот
-                total_mentions_el = card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]")
-                total_mentions = int(total_mentions_el.text.split()[0])  # Общее кол-во упоминаний группы нот
-
-                subnotes_button = card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]")
-                subnotes_button.click()
-                try:
-                    modal_window = WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]"))
-                    )
-                    time.sleep(1)
-                    note_elements = modal_window.find_elements(By.XPATH,
-                                                               ".//div[contains(@class, 'noteTag__name')]")
-                    note_names = [el.text.strip() for el in note_elements][:3]
-                    close_button = driver.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]")
-                    close_button.click()
-                    time.sleep(1)
-
-                    notes_dict[group_name] = {"mentions": total_mentions, "notes": note_names}
-                    top_notes = dict(sorted(notes_dict.items(), key=lambda x: x[1]["mentions"], reverse=True)[:4])
-
-                except Exception as e:
-                    print(f"Ошибка при работе с поднотами: {e}")
-
-            except:
-                continue
-        try:
-            next_button = slider_container.find_element(By.XPATH, ".//div[contains(@class, 'slider__right')]")
-            next_button.click()
-            time.sleep(1)
-        except:
-            print("Просмотрены все карточки.")
-            return top_notes
+# def get_wine_tasting_notes(url, driver, headless=False):
+#     """Парсинг вкусовых нот с прокруткой карусели, возвращает топ-4 группы с поднотами."""
+#     driver.get(url)
+#     accept_cookies(driver)
+#
+#     slider_container = driver.find_element(By.XPATH,
+#                                            "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
+#
+#     actions = ActionChains(driver)
+#     actions.move_to_element(slider_container).perform()
+#
+#     notes_dict = {}
+#     while True:
+#         cards = slider_container.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
+#         for card in cards:
+#             try:
+#                 group_name_el = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]")
+#                 group_name = group_name_el.text.strip()  # Название группы нот
+#                 total_mentions_el = card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]")
+#                 total_mentions = int(total_mentions_el.text.split()[0])  # Общее кол-во упоминаний группы нот
+#
+#                 subnotes_button = card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]")
+#                 subnotes_button.click()
+#                 try:
+#                     modal_window = WebDriverWait(driver, 5).until(
+#                         EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]"))
+#                     )
+#                     time.sleep(1)
+#                     note_elements = modal_window.find_elements(By.XPATH,
+#                                                                ".//div[contains(@class, 'noteTag__name')]")
+#                     note_names = [el.text.strip() for el in note_elements][:3]
+#                     close_button = driver.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]")
+#                     close_button.click()
+#                     time.sleep(1)
+#
+#                     notes_dict[group_name] = {"mentions": total_mentions, "notes": note_names}
+#                     top_notes = dict(sorted(notes_dict.items(), key=lambda x: x[1]["mentions"], reverse=True)[:4])
+#
+#                 except Exception as e:
+#                     print(f"Ошибка при работе с поднотами: {e}")
+#
+#             except:
+#                 continue
+#         try:
+#             next_button = slider_container.find_element(By.XPATH, ".//div[contains(@class, 'slider__right')]")
+#             next_button.click()
+#             time.sleep(1)
+#         except:
+#             print("Просмотрены все карточки.")
+#             return top_notes
 
 
 start_time = time.perf_counter()
 wine_info = {}
-wine_name = "La Rioja Alta"
+wine_name = "De Los Abuelos"
 with setup_driver() as driver:
     try:
-        load_cookies(driver)
         driver.get("https://www.vivino.com/")
-        if not driver.get_cookies():
-            accept_cookies(driver)
-            save_cookies(driver)
+        setup_cookies(driver)
         wine_url = search_vivino(wine_name, driver)
         if not wine_url:
             raise Exception("Не удалось найти URL вина")
+
         file_path = save_html_with_scroll(wine_name, wine_url, driver=driver)
         if not file_path:
             raise Exception("Не удалось сохранить страницу")
+
+        save_cookies(driver)
+
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
             wine_info.update({
-                "Basic Info": get_basic_info(soup),
-                "Rating": get_rating(soup),
-                "Food Pairing": get_food_pairing(soup),
-                "Taste Profile": get_taste_profile(soup),
-                "Image": get_wine_image(soup),
-                "Notes": get_wine_tasting_notes(wine_url, driver)})
+                "Basic Info": get_basic_info(soup)
+                # "Rating": get_rating(soup),
+                # "Food Pairing": get_food_pairing(soup),
+                # "Taste Profile": get_taste_profile(soup),
+                # "Image": get_wine_image(soup),
+                # "Notes": get_wine_tasting_notes(wine_url, driver)
+            })
     except Exception as e:
         print(f"Ошибка при выполнении: {str(e)}")
-
-    finally:
-        save_cookies(driver)
-        driver.quit()
+        try:
+            save_cookies(driver)  # Резервное сохранение при ошибке
+        except Exception as e:
+            print(f"Ошибка при резервном сохранении куки: {e}")
 
 pprint(wine_info, sort_dicts=False)
 print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
