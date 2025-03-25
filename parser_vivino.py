@@ -511,12 +511,11 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
 def parse_wine(wine_name, headless=False):
     """
     Основная функция парсера:
-    - Принимает название вина (например, "La Rioja Alta").
+    - Принимает название вина.
     - Возвращает словарь с данными о вине.
     - Параметр headless управляет режимом браузера (True — без GUI).
     """
     wine_info = {}
-    wine_name = "La Rioja Alta"
     with setup_driver(headless=headless) as driver:
         try:
             driver.get("https://www.vivino.com/")
@@ -556,9 +555,9 @@ def parse_wine(wine_name, headless=False):
     return wine_info
 
 
-if __name__ == "__main__":
-    start_time = time.perf_counter()
-    wine_data = parse_wine("La Rioja Alta", headless=False)
-    pprint(wine_data, sort_dicts=False)
-    print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
+# if __name__ == "__main__":
+#     start_time = time.perf_counter()
+#     wine_data = parse_wine('De los abuelos', headless=True)
+#     pprint(wine_data, sort_dicts=False)
+#     print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
 
