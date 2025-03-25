@@ -122,6 +122,8 @@ def load_cookies(driver, path="cookies.pkl"):
 def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
     """Принимает куки и сохраняет их в файл."""
     try:
+        WebDriverWait(driver, 20).until(lambda d: "vivino.com" in d.current_url)
+
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div.didomi-popup-container"))
         )
@@ -219,22 +221,20 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         return None
 
 
-def search_vivino(wine_name, driver, attempts=5, search_timeout=40):
+def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
     """
     Ищет вино на сайте Vivino по названию и возвращает ссылку на его страницу.
-    Принимает уже созданный экземпляр Selenium WebDriver.
+    Использует переданный драйвер, а при неудаче — временный драйвер (если разрешено).
     """
     SEARCH_INPUT_SELECTOR = "input[name='q']"
 
-    for attempt in range(1, attempts + 1):
-        print(f"Попытка {attempt}/{attempts} поиска '{wine_name}'")
+    def try_search(drv):
         try:
-            driver.set_page_load_timeout(15)
-            driver.get("https://www.vivino.com/")
+            drv.set_page_load_timeout(15)
+            drv.get("https://www.vivino.com/")
 
-            search_box = WebDriverWait(driver, 10).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)),
-                message=f"Не найдено поле поиска за 10 сек (попытка {attempt})")
+            search_box = WebDriverWait(drv, 10).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)))
 
             for char in wine_name:  # Имитация ввода человеком
                 search_box.send_keys(char)
@@ -243,32 +243,39 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=40):
             search_box.send_keys(Keys.RETURN)
             print("Название вина отправлено в поиск")
 
-            WebDriverWait(driver, search_timeout).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")),
-                message=f"Не удалось найти вино за {attempt} попыток.")
+            WebDriverWait(drv, search_timeout).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")))
 
-            vintage_id = driver.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
+            vintage_id = drv.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
             wine_url = f"https://www.vivino.com/wines/{vintage_id}"
-
             print(f"Успешно найдено вино: {wine_url}")
             return wine_url
 
-        except TimeoutException as e:
-            print(f"Таймаут при поиске: {str(e)}")
-        except NoSuchElementException as e:
-            print(f"Элемент не найден: {str(e)}")
         except Exception as e:
-            error_msg = str(e).lower()
-            print(f"Неожиданная ошибка: {error_msg}")
-            page_source = driver.page_source.lower()
-            if any(x in page_source for x in ["cloudflare", "captcha", "access denied"]):
-                print("Обнаружена система защиты - требуется ручное вмешательство")
-                break
-            elif "bot" in error_msg or "blocked" in error_msg:
-                print("Заблокировано антибот-системой")
-                break
+            print(f"Ошибка при поиске: {e}")
+            return None
 
-    print(f"Поиск не удался после {attempts} попыток")
+    print(f"Попытка 1 поиска '{wine_name}' через основной драйвер")
+    wine_url = try_search(driver)
+    if wine_url:
+        return wine_url
+
+    if fallback_on_fail:
+        print("Перезапуск драйвера после неудачной попытки...")
+
+        try:
+            driver.quit()  # <--- закрываем текущий драйвер
+
+            with setup_driver(headless=False) as temp_driver:
+                time.sleep(2)
+                temp_driver.get("https://www.vivino.com/")
+                setup_cookies(temp_driver)
+                wine_url = try_search(temp_driver)
+                return wine_url
+        except Exception as e:
+            print(f"Ошибка при использовании временного драйвера: {e}")
+
+    print("Не удалось найти вино ни с основным, ни с временным драйвером.")
     return None
 
 
@@ -482,6 +489,7 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
                 card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]").click()
                 modal = WebDriverWait(driver, 5).until(
                     EC.visibility_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]")))
+                time.sleep(0.3)
                 notes_list = [el.text.strip() for el in
                               modal.find_elements(By.XPATH, ".//div[contains(@class, 'noteTag__name')]")][:3]
                 modal.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]").click()
@@ -498,12 +506,12 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
 
     except Exception as e:
         print(f"Ошибка парсинга: {str(e)}")
-        return {}
+        return "Не найдены"
 
 
 start_time = time.perf_counter()
 wine_info = {}
-wine_name = "Albariño Atlantico"
+wine_name = "La Rioja Alta"
 with setup_driver() as driver:
     try:
         driver.get("https://www.vivino.com/")
