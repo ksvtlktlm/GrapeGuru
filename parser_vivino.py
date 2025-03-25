@@ -405,7 +405,56 @@ def get_wine_image(soup):
         return img_url if img_url else "Изображение не найдено"
     except Exception as e:
         print(f"Ошибка при парсинге изображения: {e}")
-        print("Ошибка получения изображения", e)
+        return "Ошибка при получении изображения"
+
+
+def get_wine_type(soup):
+    """Парсит тип вина."""
+    try:
+        wine_type = soup.find("a", attrs={"data-cy": "breadcrumb-winetype"}).text
+        return wine_type if wine_type else "Тип вина не найден"
+    except Exception as e:
+        print(f"Ошибка при парсинге типа вина: {e}")
+
+
+def get_wine_brand_and_name(soup):
+    """Извлекает бренд (производителя) и название вина (включая винтаж, если есть)."""
+    DEFAULT_VALUES = ("Не найден", "Не найдено")
+    brand, name = DEFAULT_VALUES
+
+    try:
+        headline = soup.find("h1")
+        if not headline:
+            print("Не найден заголовок h1 на странице")
+            return DEFAULT_VALUES
+
+        headline_div = headline.find("div", class_=lambda x: x and "wineHeadline" in x)
+        if not headline_div:
+            print("Не найден блок с названием вина")
+            return DEFAULT_VALUES
+
+        brand_element = headline_div.find("a")
+        if brand_element:
+            brand = brand_element.get_text(strip=True)
+            if not brand:
+                print("Бренд найден, но текст пустой")
+                brand = DEFAULT_VALUES[0]
+
+        full_text = headline_div.get_text(strip=True)
+        if not full_text:
+            print("Полное название вина не содержит текста")
+            return brand, DEFAULT_VALUES[1]
+
+        name = re.sub(rf'^{re.escape(brand)}', '', full_text).strip()
+        if not name:
+            name = DEFAULT_VALUES[1]
+
+        return brand, name
+
+    except Exception as e:
+        print(f"Ошибка при парсинге названия и бренда: {e}")
+        return DEFAULT_VALUES
+
 
 
 def get_wine_tasting_notes(url, driver, notes_limit=4):
@@ -454,7 +503,7 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
 
 start_time = time.perf_counter()
 wine_info = {}
-wine_name = "Roda I Reserva"
+wine_name = "Albariño Atlantico"
 with setup_driver() as driver:
     try:
         driver.get("https://www.vivino.com/")
@@ -471,7 +520,11 @@ with setup_driver() as driver:
 
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
+            brand, name = get_wine_brand_and_name(soup)
             wine_info.update({
+                "Brand": brand,
+                "Name": name,
+                "Type": get_wine_type(soup),
                 "Basic Info": get_basic_info(soup),
                 "Rating": get_rating(soup),
                 "Food Pairing": get_food_pairing(soup),
