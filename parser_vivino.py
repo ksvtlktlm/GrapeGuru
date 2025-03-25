@@ -243,9 +243,9 @@ def search_vivino(wine_name, driver, attempts=5, search_timeout=40):
             search_box.send_keys(Keys.RETURN)
             print("Название вина отправлено в поиск")
 
-
             WebDriverWait(driver, search_timeout).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")), message=f"Не удалось найти вино за {attempt} попыток.")
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")),
+                message=f"Не удалось найти вино за {attempt} попыток.")
 
             vintage_id = driver.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
             wine_url = f"https://www.vivino.com/wines/{vintage_id}"
@@ -408,55 +408,48 @@ def get_wine_image(soup):
         print("Ошибка получения изображения", e)
 
 
-def get_wine_tasting_notes(url, driver, headless=False):
-    """Парсинг вкусовых нот с прокруткой карусели, возвращает топ-4 группы с поднотами."""
-    driver.get(url)
+def get_wine_tasting_notes(url, driver, notes_limit=4):
+    """Парсит первые 3 видимые вкусовые карточки без прокрутки"""
+    try:
+        driver.get(url)
+        time.sleep(2)
 
-    slider_container = driver.find_element(By.XPATH,
-                                           "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
+        slider = WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located(
+                (By.XPATH,
+                 "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")))
+        actions = ActionChains(driver)
+        actions.move_to_element(slider).perform()
 
-    actions = ActionChains(driver)
-    actions.move_to_element(slider_container).perform()
+        notes = {}
 
-    notes_dict = {}
-    while True:
-        cards = slider_container.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
-        for card in cards:
+        cards = slider.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
+        for card in cards[:3]:
             try:
-                group_name_el = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]")
-                group_name = group_name_el.text.strip()  # Название группы нот
-                total_mentions_el = card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]")
-                total_mentions = int(total_mentions_el.text.split()[0])  # Общее кол-во упоминаний группы нот
+                group = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]").text.strip()
+                mentions = int(
+                    card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]").text.split()[0])
 
-                subnotes_button = card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]")
-                subnotes_button.click()
-                try:
-                    modal_window = WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]"))
-                    )
-                    time.sleep(1)
-                    note_elements = modal_window.find_elements(By.XPATH,
-                                                               ".//div[contains(@class, 'noteTag__name')]")
-                    note_names = [el.text.strip() for el in note_elements][:3]
-                    close_button = driver.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]")
-                    close_button.click()
-                    time.sleep(1)
+                card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]").click()
+                modal = WebDriverWait(driver, 5).until(
+                    EC.visibility_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]")))
+                notes_list = [el.text.strip() for el in
+                              modal.find_elements(By.XPATH, ".//div[contains(@class, 'noteTag__name')]")][:3]
+                modal.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]").click()
+                time.sleep(0.3)
+                notes[group] = {"mentions": mentions, "notes": notes_list}
 
-                    notes_dict[group_name] = {"mentions": total_mentions, "notes": note_names}
-                    top_notes = dict(sorted(notes_dict.items(), key=lambda x: x[1]["mentions"], reverse=True)[:4])
-
-                except Exception as e:
-                    print(f"Ошибка при работе с поднотами: {e}")
-
-            except:
+            except Exception as e:
+                print(f"Пропущена карточка: {str(e)}")
                 continue
-        try:
-            next_button = slider_container.find_element(By.XPATH, ".//div[contains(@class, 'slider__right')]")
-            next_button.click()
-            time.sleep(1)
-        except:
-            print("Просмотрены все карточки.")
-            return top_notes
+
+        return dict(sorted(notes.items(),
+                           key=lambda x: x[1]["mentions"],
+                           reverse=True)[:notes_limit])
+
+    except Exception as e:
+        print(f"Ошибка парсинга: {str(e)}")
+        return {}
 
 
 start_time = time.perf_counter()
@@ -484,7 +477,7 @@ with setup_driver() as driver:
                 "Food Pairing": get_food_pairing(soup),
                 "Taste Profile": get_taste_profile(soup),
                 "Image": get_wine_image(soup),
-                # "Notes": get_wine_tasting_notes(wine_url, driver)
+                "Notes": get_wine_tasting_notes(wine_url, driver)
             })
     except Exception as e:
         print(f"Ошибка при выполнении: {str(e)}")
