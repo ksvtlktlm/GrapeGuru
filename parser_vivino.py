@@ -322,7 +322,8 @@ def get_basic_info(soup):
 
 
 def get_rating(soup):
-    """Парсинг рейтинга вина"""
+    """Парсит рейтинг вина с обработкой ошибок.
+       Возвращает float или None при ошибке."""
     try:
         rating = float(soup.find("div", class_=re.compile(r"^vivinoRating_averageValue")).text)
         return rating if rating else "Рейтинг не найден"
@@ -332,7 +333,7 @@ def get_rating(soup):
 
 
 def get_food_pairing(soup):
-    """Парсинг подходящих блюд"""
+    """Парсит подходящие блюда"""
     try:
         food_container = soup.find("div", class_=re.compile(r"^foodPairing__foodContainer"))
         if food_container:
@@ -345,7 +346,7 @@ def get_food_pairing(soup):
 
 
 def get_taste_profile(soup):
-    """Парсинг вкусового профиля вина"""
+    """Парсит вкусовой профиль вина"""
     taste_profile = {}
     try:
         taste_table = soup.find("table", class_=re.compile(r"^tasteStructure"))
@@ -397,7 +398,7 @@ def get_taste_profile(soup):
 
 
 def get_wine_image(soup):
-    """Парсинг изображения вина"""
+    """Парсит изображение вина"""
     try:
         img_container = soup.find("picture", class_=re.compile(r"^wineLabel-module__picture"))
         img_url = img_container.next.get("srcset").split(",")[0]
@@ -407,61 +408,60 @@ def get_wine_image(soup):
         print("Ошибка получения изображения", e)
 
 
-# def get_wine_tasting_notes(url, driver, headless=False):
-#     """Парсинг вкусовых нот с прокруткой карусели, возвращает топ-4 группы с поднотами."""
-#     driver.get(url)
-#     accept_cookies(driver)
-#
-#     slider_container = driver.find_element(By.XPATH,
-#                                            "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
-#
-#     actions = ActionChains(driver)
-#     actions.move_to_element(slider_container).perform()
-#
-#     notes_dict = {}
-#     while True:
-#         cards = slider_container.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
-#         for card in cards:
-#             try:
-#                 group_name_el = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]")
-#                 group_name = group_name_el.text.strip()  # Название группы нот
-#                 total_mentions_el = card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]")
-#                 total_mentions = int(total_mentions_el.text.split()[0])  # Общее кол-во упоминаний группы нот
-#
-#                 subnotes_button = card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]")
-#                 subnotes_button.click()
-#                 try:
-#                     modal_window = WebDriverWait(driver, 5).until(
-#                         EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]"))
-#                     )
-#                     time.sleep(1)
-#                     note_elements = modal_window.find_elements(By.XPATH,
-#                                                                ".//div[contains(@class, 'noteTag__name')]")
-#                     note_names = [el.text.strip() for el in note_elements][:3]
-#                     close_button = driver.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]")
-#                     close_button.click()
-#                     time.sleep(1)
-#
-#                     notes_dict[group_name] = {"mentions": total_mentions, "notes": note_names}
-#                     top_notes = dict(sorted(notes_dict.items(), key=lambda x: x[1]["mentions"], reverse=True)[:4])
-#
-#                 except Exception as e:
-#                     print(f"Ошибка при работе с поднотами: {e}")
-#
-#             except:
-#                 continue
-#         try:
-#             next_button = slider_container.find_element(By.XPATH, ".//div[contains(@class, 'slider__right')]")
-#             next_button.click()
-#             time.sleep(1)
-#         except:
-#             print("Просмотрены все карточки.")
-#             return top_notes
+def get_wine_tasting_notes(url, driver, headless=False):
+    """Парсинг вкусовых нот с прокруткой карусели, возвращает топ-4 группы с поднотами."""
+    driver.get(url)
+
+    slider_container = driver.find_element(By.XPATH,
+                                           "//div[starts-with(@class, 'tasteCharacteristics')]//div[starts-with(@class, 'slider__slider')]")
+
+    actions = ActionChains(driver)
+    actions.move_to_element(slider_container).perform()
+
+    notes_dict = {}
+    while True:
+        cards = slider_container.find_elements(By.XPATH, ".//div[contains(@class, 'col mobile-column-6')]")
+        for card in cards:
+            try:
+                group_name_el = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]")
+                group_name = group_name_el.text.strip()  # Название группы нот
+                total_mentions_el = card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]")
+                total_mentions = int(total_mentions_el.text.split()[0])  # Общее кол-во упоминаний группы нот
+
+                subnotes_button = card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]")
+                subnotes_button.click()
+                try:
+                    modal_window = WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]"))
+                    )
+                    time.sleep(1)
+                    note_elements = modal_window.find_elements(By.XPATH,
+                                                               ".//div[contains(@class, 'noteTag__name')]")
+                    note_names = [el.text.strip() for el in note_elements][:3]
+                    close_button = driver.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]")
+                    close_button.click()
+                    time.sleep(1)
+
+                    notes_dict[group_name] = {"mentions": total_mentions, "notes": note_names}
+                    top_notes = dict(sorted(notes_dict.items(), key=lambda x: x[1]["mentions"], reverse=True)[:4])
+
+                except Exception as e:
+                    print(f"Ошибка при работе с поднотами: {e}")
+
+            except:
+                continue
+        try:
+            next_button = slider_container.find_element(By.XPATH, ".//div[contains(@class, 'slider__right')]")
+            next_button.click()
+            time.sleep(1)
+        except:
+            print("Просмотрены все карточки.")
+            return top_notes
 
 
 start_time = time.perf_counter()
 wine_info = {}
-wine_name = "De Los Abuelos"
+wine_name = "Roda I Reserva"
 with setup_driver() as driver:
     try:
         driver.get("https://www.vivino.com/")
@@ -479,11 +479,11 @@ with setup_driver() as driver:
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file, "lxml")
             wine_info.update({
-                "Basic Info": get_basic_info(soup)
-                # "Rating": get_rating(soup),
-                # "Food Pairing": get_food_pairing(soup),
-                # "Taste Profile": get_taste_profile(soup),
-                # "Image": get_wine_image(soup),
+                "Basic Info": get_basic_info(soup),
+                "Rating": get_rating(soup),
+                "Food Pairing": get_food_pairing(soup),
+                "Taste Profile": get_taste_profile(soup),
+                "Image": get_wine_image(soup),
                 # "Notes": get_wine_tasting_notes(wine_url, driver)
             })
     except Exception as e:
