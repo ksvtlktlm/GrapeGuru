@@ -463,7 +463,6 @@ def get_wine_brand_and_name(soup):
         return DEFAULT_VALUES
 
 
-
 def get_wine_tasting_notes(url, driver, notes_limit=4):
     """Парсит первые 3 видимые вкусовые карточки без прокрутки"""
     try:
@@ -509,43 +508,57 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
         return "Не найдены"
 
 
-start_time = time.perf_counter()
-wine_info = {}
-wine_name = "La Rioja Alta"
-with setup_driver() as driver:
-    try:
-        driver.get("https://www.vivino.com/")
-        setup_cookies(driver)
-        wine_url = search_vivino(wine_name, driver)
-        if not wine_url:
-            raise Exception("Не удалось найти URL вина")
-
-        file_path = save_html_with_scroll(wine_name, wine_url, driver=driver)
-        if not file_path:
-            raise Exception("Не удалось сохранить страницу")
-
-        save_cookies(driver)
-
-        with open(file_path, "r", encoding="utf-8") as file:
-            soup = BeautifulSoup(file, "lxml")
-            brand, name = get_wine_brand_and_name(soup)
-            wine_info.update({
-                "Brand": brand,
-                "Name": name,
-                "Type": get_wine_type(soup),
-                "Basic Info": get_basic_info(soup),
-                "Rating": get_rating(soup),
-                "Food Pairing": get_food_pairing(soup),
-                "Taste Profile": get_taste_profile(soup),
-                "Image": get_wine_image(soup),
-                "Notes": get_wine_tasting_notes(wine_url, driver)
-            })
-    except Exception as e:
-        print(f"Ошибка при выполнении: {str(e)}")
+def parse_wine(wine_name, headless=False):
+    """
+    Основная функция парсера:
+    - Принимает название вина (например, "La Rioja Alta").
+    - Возвращает словарь с данными о вине.
+    - Параметр headless управляет режимом браузера (True — без GUI).
+    """
+    wine_info = {}
+    wine_name = "La Rioja Alta"
+    with setup_driver(headless=headless) as driver:
         try:
-            save_cookies(driver)  # Резервное сохранение при ошибке
-        except Exception as e:
-            print(f"Ошибка при резервном сохранении куки: {e}")
+            driver.get("https://www.vivino.com/")
+            setup_cookies(driver)
 
-pprint(wine_info, sort_dicts=False)
-print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
+            wine_url = search_vivino(wine_name, driver)
+            if not wine_url:
+                raise Exception("Не удалось найти URL вина")
+
+            file_path = save_html_with_scroll(wine_name, wine_url, driver=driver)
+            if not file_path:
+                raise Exception("Не удалось сохранить страницу")
+
+            save_cookies(driver)
+
+            with open(file_path, "r", encoding="utf-8") as file:
+                soup = BeautifulSoup(file, "lxml")
+                brand, name = get_wine_brand_and_name(soup)
+                wine_info.update({
+                    "Brand": brand,
+                    "Name": name,
+                    "Type": get_wine_type(soup),
+                    "Basic Info": get_basic_info(soup),
+                    "Rating": get_rating(soup),
+                    "Food Pairing": get_food_pairing(soup),
+                    "Taste Profile": get_taste_profile(soup),
+                    "Image": get_wine_image(soup),
+                    "Notes": get_wine_tasting_notes(wine_url, driver)
+                })
+        except Exception as e:
+            print(f"Ошибка при парсинге: {str(e)}")
+            try:
+                save_cookies(driver)  # Резервное сохранение при ошибке
+            except Exception as e:
+                print(f"Ошибка при резервном сохранении куки: {e}")
+
+    return wine_info
+
+
+if __name__ == "__main__":
+    start_time = time.perf_counter()
+    wine_data = parse_wine("La Rioja Alta", headless=False)
+    pprint(wine_data, sort_dicts=False)
+    print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
+
