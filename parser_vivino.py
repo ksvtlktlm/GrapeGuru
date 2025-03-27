@@ -4,6 +4,8 @@ from pprint import pprint
 import random
 import os
 import logging
+import pickle
+
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -16,7 +18,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import pickle
+from cache_manager import load_cached_wine, save_to_cache
+
 
 if not os.path.exists("chromedriver"):
     CHROME_DRIVER_PATH = ChromeDriverManager().install()
@@ -47,7 +50,7 @@ def setup_driver(headless=False):
         return driver
 
     except Exception as e:
-        print(f"Ошибка инициализации драйвера: {str(e)}")
+        logging.info(f"Ошибка инициализации драйвера: {str(e)}")
         raise
 
 
@@ -87,23 +90,23 @@ def save_cookies(driver, path="cookies.pkl"):
     try:
         cookies = driver.get_cookies()
         if not cookies:
-            print("Нет куки для сохранения")
+            logging.info("Нет куки для сохранения")
             return False
 
         with open(path, "wb") as file:
             pickle.dump(driver.get_cookies(), file)
-        print("Куки сохранены")
+        logging.info("Куки сохранены")
         time.sleep(1)
         return True
     except Exception as e:
-        print(f"Ошибка сохранения куки: {e}")
+        logging.info(f"Ошибка сохранения куки: {e}")
         return False
 
 
 def load_cookies(driver, path="cookies.pkl"):
     """Загружает куки из файла."""
     if not os.path.exists(path):
-        print("Файл куки не найден")
+        logging.info("Файл куки не найден")
         return False
 
     try:
@@ -112,10 +115,10 @@ def load_cookies(driver, path="cookies.pkl"):
             for cookie in cookies:
                 if "name" in cookie and "value" in cookie:
                     driver.add_cookie(cookie)
-        print("Куки загружены")
+        logging.info("Куки загружены")
         return True
     except Exception as e:
-        print(f"Ошибка загрузки куки: {e}")
+        logging.info(f"Ошибка загрузки куки: {e}")
         return False
 
 
@@ -141,15 +144,15 @@ def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
             EC.invisibility_of_element_located((By.CSS_SELECTOR, "div.didomi-popup-container"))
         )
 
-        print("Куки приняты и окно закрыто")
+        logging.info("Куки приняты и окно закрыто")
         save_cookies(driver, path=cookie_path)
         return True
 
     except TimeoutException:
-        print("Окно куки не появилось — возможно, уже принято")
+        logging.info("Окно куки не появилось — возможно, уже принято")
         return True
     except Exception as e:
-        print(f"Ошибка при принятии куки: {e}")
+        logging.info(f"Ошибка при принятии куки: {e}")
         return False
 
 
@@ -158,7 +161,7 @@ def setup_cookies(driver, cookie_path="cookies.pkl"):
     Основная функция — загружает куки, если есть. Если нет — принимает и сохраняет.
     """
     if not load_cookies(driver, cookie_path):
-        print("Пробуем принять новые куки...")
+        logging.info("Пробуем принять новые куки...")
         accept_and_save_cookies(driver, cookie_path)
     else:
         driver.refresh()
@@ -174,7 +177,7 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
     file_path = os.path.join(folder, f"{safe_name}.html")
 
     if os.path.exists(file_path):
-        print(f"Страница уже сохранена: {file_path}")
+        logging.info(f"Страница уже сохранена: {file_path}")
         return file_path
 
     try:
@@ -185,7 +188,7 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
             load_cookies(driver)
             driver.refresh()  # Обновление страницы для активации куки
             if not driver.get_cookies():
-                print("Предупреждение: Cookies не загрузились после refresh")
+                logging.info("Предупреждение: Cookies не загрузились после refresh")
 
         # Скроллинг до конца страницы
         scroll_attempt = 0
@@ -207,15 +210,15 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         with open(file_path, "w", encoding="utf-8", errors="replace") as file:
             file.write(page_source)
 
-        print(f"HTML-страница сохранена: {file_path}")
+        logging.info(f"HTML-страница сохранена: {file_path}")
         return file_path
 
     except TimeoutException:
-        print(f"[Timeout] Не удалось загрузить страницу: {url}")
+        logging.info(f"[Timeout] Не удалось загрузить страницу: {url}")
         return None
 
     except Exception as e:
-        print(f"[Error] Ошибка при обработке {url}: {str(e)}")
+        logging.info(f"[Error] Ошибка при обработке {url}: {str(e)}")
         if os.path.exists(file_path):
             os.remove(file_path)  # Удаление неполного файла
         return None
@@ -241,27 +244,27 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
                 time.sleep(random.uniform(0.1, 0.3))
             time.sleep(1)
             search_box.send_keys(Keys.RETURN)
-            print("Название вина отправлено в поиск")
+            logging.info("Название вина отправлено в поиск")
 
             WebDriverWait(drv, search_timeout).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")))
 
             vintage_id = drv.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
             wine_url = f"https://www.vivino.com/wines/{vintage_id}"
-            print(f"Успешно найдено вино: {wine_url}")
+            logging.info(f"Успешно найдено вино: {wine_url}")
             return wine_url
 
         except Exception as e:
-            print(f"Ошибка при поиске: {e}")
+            logging.info(f"Ошибка при поиске: {e}")
             return None
 
-    print(f"Попытка 1 поиска '{wine_name}' через основной драйвер")
+    logging.info(f"Попытка 1 поиска '{wine_name}' через основной драйвер")
     wine_url = try_search(driver)
     if wine_url:
         return wine_url
 
     if fallback_on_fail:
-        print("Перезапуск драйвера после неудачной попытки...")
+        logging.info("Перезапуск драйвера после неудачной попытки...")
 
         try:
             driver.quit()  # <--- закрываем текущий драйвер
@@ -273,9 +276,9 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
                 wine_url = try_search(temp_driver)
                 return wine_url
         except Exception as e:
-            print(f"Ошибка при использовании временного драйвера: {e}")
+            logging.info(f"Ошибка при использовании временного драйвера: {e}")
 
-    print("Не удалось найти вино ни с основным, ни с временным драйвером.")
+    logging.info("Не удалось найти вино ни с основным, ни с временным драйвером.")
     return None
 
 
@@ -318,11 +321,11 @@ def get_basic_info(soup):
                     result[key] = text if text else None
 
             except Exception as e:
-                print(f"Ошибка обработки строки '{key}': {str(e)}")
+                logging.info(f"Ошибка обработки строки '{key}': {str(e)}")
                 continue
 
     except Exception as e:
-        print(f"Ошибка парсинга таблицы: {str(e)}")
+        logging.info(f"Ошибка парсинга таблицы: {str(e)}")
         return {"Ошибка": str(e)}
 
     return result if result else {"Данные": "Не найдены"}
@@ -335,7 +338,7 @@ def get_rating(soup):
         rating = float(soup.find("div", class_=re.compile(r"^vivinoRating_averageValue")).text)
         return rating if rating else "Рейтинг не найден"
     except AttributeError:
-        print("Рейтинг не найден")
+        logging.info("Рейтинг не найден")
         return "Рейтинг не найден"
 
 
@@ -348,7 +351,7 @@ def get_food_pairing(soup):
             return foods if foods else "Подходящие блюда не указаны."
         return "Подходящие блюда не указаны."
     except Exception as e:
-        print(f"Ошибка при парсинге еды: {e}")
+        logging.info(f"Ошибка при парсинге еды: {e}")
         return "Ошибка при получении информации о еде"
 
 
@@ -396,10 +399,10 @@ def get_taste_profile(soup):
                     taste_profile[char_name] = result
 
             except Exception as e:
-                print(f"Ошибка при обработке характеристики вкуса: {e}")
+                logging.info(f"Ошибка при обработке характеристики вкуса: {e}")
 
     except Exception as e:
-        print(f"Ошибка при парсинге вкусового профиля: {e}")
+        logging.info(f"Ошибка при парсинге вкусового профиля: {e}")
 
     return taste_profile if taste_profile else "Не найден"
 
@@ -411,7 +414,7 @@ def get_wine_image(soup):
         img_url = img_container.next.get("srcset").split(",")[0]
         return img_url if img_url else "Изображение не найдено"
     except Exception as e:
-        print(f"Ошибка при парсинге изображения: {e}")
+        logging.info(f"Ошибка при парсинге изображения: {e}")
         return "Ошибка при получении изображения"
 
 
@@ -421,7 +424,7 @@ def get_wine_type(soup):
         wine_type = soup.find("a", attrs={"data-cy": "breadcrumb-winetype"}).text
         return wine_type if wine_type else "Тип вина не найден"
     except Exception as e:
-        print(f"Ошибка при парсинге типа вина: {e}")
+        logging.info(f"Ошибка при парсинге типа вина: {e}")
 
 
 def get_wine_brand_and_name(soup):
@@ -432,24 +435,24 @@ def get_wine_brand_and_name(soup):
     try:
         headline = soup.find("h1")
         if not headline:
-            print("Не найден заголовок h1 на странице")
+            logging.info("Не найден заголовок h1 на странице")
             return DEFAULT_VALUES
 
         headline_div = headline.find("div", class_=lambda x: x and "wineHeadline" in x)
         if not headline_div:
-            print("Не найден блок с названием вина")
+            logging.info("Не найден блок с названием вина")
             return DEFAULT_VALUES
 
         brand_element = headline_div.find("a")
         if brand_element:
             brand = brand_element.get_text(strip=True)
             if not brand:
-                print("Бренд найден, но текст пустой")
+                logging.info("Бренд найден, но текст пустой")
                 brand = DEFAULT_VALUES[0]
 
         full_text = headline_div.get_text(strip=True)
         if not full_text:
-            print("Полное название вина не содержит текста")
+            logging.info("Полное название вина не содержит текста")
             return brand, DEFAULT_VALUES[1]
 
         name = re.sub(rf'^{re.escape(brand)}', '', full_text).strip()
@@ -459,7 +462,7 @@ def get_wine_brand_and_name(soup):
         return brand, name
 
     except Exception as e:
-        print(f"Ошибка при парсинге названия и бренда: {e}")
+        logging.info(f"Ошибка при парсинге названия и бренда: {e}")
         return DEFAULT_VALUES
 
 
@@ -496,7 +499,7 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
                 notes[group] = {"mentions": mentions, "notes": notes_list}
 
             except Exception as e:
-                print(f"Пропущена карточка: {str(e)}")
+                logging.info(f"Пропущена карточка: {str(e)}")
                 continue
 
         return dict(sorted(notes.items(),
@@ -504,7 +507,7 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
                            reverse=True)[:notes_limit])
 
     except Exception as e:
-        print(f"Ошибка парсинга: {str(e)}")
+        logging.info(f"Ошибка парсинга: {str(e)}")
         return "Не найдены"
 
 
@@ -515,6 +518,11 @@ def parse_wine(wine_name, headless=False):
     - Возвращает словарь с данными о вине.
     - Параметр headless управляет режимом браузера (True — без GUI).
     """
+    cached_data = load_cached_wine(wine_name)
+    if cached_data:
+        logging.info(f"Используются кэшированные данные для {wine_name}")
+        return cached_data
+
     wine_info = {}
     with setup_driver(headless=headless) as driver:
         try:
@@ -546,18 +554,24 @@ def parse_wine(wine_name, headless=False):
                     "Notes": get_wine_tasting_notes(wine_url, driver)
                 })
         except Exception as e:
-            print(f"Ошибка при парсинге: {str(e)}")
+            logging.info(f"Ошибка при парсинге: {str(e)}")
             try:
                 save_cookies(driver)  # Резервное сохранение при ошибке
             except Exception as e:
-                print(f"Ошибка при резервном сохранении куки: {e}")
+                logging.info(f"Ошибка при резервном сохранении куки: {e}")
+
+    try:
+        save_to_cache(wine_name, wine_info)
+        logging.info(f"Данные для {wine_name} сохранены в кэш")
+    except Exception as e:
+        logging.info(f"Ошибка кэширования: {str(e)}")
 
     return wine_info
 
-
-# if __name__ == "__main__":
-#     start_time = time.perf_counter()
-#     wine_data = parse_wine('De los abuelos', headless=True)
-#     pprint(wine_data, sort_dicts=False)
-#     print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
+"""Для отладки"""
+if __name__ == "__main__":
+    start_time = time.perf_counter()
+    wine_data = parse_wine('крым', headless=True)
+    pprint(wine_data, sort_dicts=False)
+    print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
 
