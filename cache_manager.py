@@ -3,7 +3,7 @@ import hashlib
 
 
 def get_wine_cache_key(wine_name):
-    """"Создает уникальный ключ по названию вина."""
+    """Создает уникальный ключ по названию вина."""
     return hashlib.md5(wine_name.encode()).hexdigest()
 
 

@@ -18,6 +18,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 from cache_manager import load_cached_wine, save_to_cache
 
 
@@ -81,6 +82,7 @@ def get_chrome_options(headless=False, disable_js=False, disable_images=True):
         options.add_experimental_option("prefs", prefs)
 
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
     options.page_load_strategy = 'eager'
     return options
 
@@ -224,7 +226,7 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         return None
 
 
-def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
+def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, headless=False):
     """
     Ищет вино на сайте Vivino по названию и возвращает ссылку на его страницу.
     Использует переданный драйвер, а при неудаче — временный драйвер (если разрешено).
@@ -234,9 +236,14 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
     def try_search(drv):
         try:
             drv.set_page_load_timeout(15)
+            time.sleep(random.uniform(1, 3))
             drv.get("https://www.vivino.com/")
+            if "access denied" in drv.page_source.lower():
+                raise Exception("Обнаружена страница блокировки")
 
-            search_box = WebDriverWait(drv, 10).until(
+            setup_cookies(drv)
+
+            search_box = WebDriverWait(drv, 20).until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)))
 
             for char in wine_name:  # Имитация ввода человеком
@@ -246,10 +253,37 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
             search_box.send_keys(Keys.RETURN)
             logging.info("Название вина отправлено в поиск")
 
-            WebDriverWait(drv, search_timeout).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")))
+            time.sleep(random.uniform(1, 3))
 
-            vintage_id = drv.find_element(By.CSS_SELECTOR, "div[data-vintage]").get_attribute("data-vintage")
+            if "access denied" in drv.page_source.lower():
+                raise Exception("Обнаружена страница блокировки")
+
+            try:
+                no_result_el = WebDriverWait(drv, 3).until(
+                    EC.presence_of_element_located((
+                        By.XPATH,
+                        "//div[contains(@class, 'noResultsMessage')]"
+                    ))
+                )
+                logging.warning("Ни одного вина не найдено!")
+                return "NO_RESULTS"
+
+            except TimeoutException:
+                pass
+
+            for i in range(0, drv.execute_script("return document.body.scrollHeight"), 300):
+                drv.execute_script(f"window.scrollTo(0, {i});")
+                time.sleep(0.2)
+
+            drv.execute_script("window.scrollTo(0, 0);")
+
+            WebDriverWait(drv, search_timeout).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")))
+
+            vintage_el = WebDriverWait(drv, 30).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]"))
+            )
+            vintage_id = vintage_el.get_attribute("data-vintage")
             wine_url = f"https://www.vivino.com/wines/{vintage_id}"
             logging.info(f"Успешно найдено вино: {wine_url}")
             return wine_url
@@ -260,23 +294,28 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40):
 
     logging.info(f"Попытка 1 поиска '{wine_name}' через основной драйвер")
     wine_url = try_search(driver)
+
+    if wine_url == "NO_RESULTS":
+        return None, driver
+
     if wine_url:
-        return wine_url
+        return wine_url, driver
 
     if fallback_on_fail:
         logging.info("Перезапуск драйвера после неудачной попытки...")
 
         try:
-            driver.quit()  # <--- закрываем текущий драйвер
-
-            with setup_driver(headless=False) as temp_driver:
-                time.sleep(2)
-                temp_driver.get("https://www.vivino.com/")
-                setup_cookies(temp_driver)
-                wine_url = try_search(temp_driver)
-                return wine_url
+            driver.quit()
+            temp_driver = setup_driver(headless=headless)
+            time.sleep(2)
+            temp_driver.get("https://www.vivino.com/")
+            setup_cookies(temp_driver)
+            logging.info("Драйвер жив после загрузки куки")
+            wine_url = try_search(temp_driver)
+            return wine_url, temp_driver
         except Exception as e:
             logging.error(f"Ошибка при использовании временного драйвера: {e}")
+            return None, None
 
     logging.error("Не удалось найти вино ни с основным, ни с временным драйвером.")
     return None
@@ -382,19 +421,19 @@ def get_taste_profile(soup):
 
                     char_name = f"{left_label} - {right_label}"
                     if position <= 10:
-                        result = f"Полностью {left_label} ({round(position, 1)}%)"
+                        result = f"Completely {str.lower(left_label)} ({round(position, 1)}%)"
                     elif position <= 30:
-                        result = f"Скорее {left_label}, но с лёгким уклоном ({round(position, 1)}%)"
+                        result = f"Mostly {str.lower(left_label)}, but with a slight tendency ({round(position, 1)}%)"
                     elif position <= 45:
-                        result = f"Чуть ближе к {left_label}, но почти сбалансировано ({round(position, 1)}%)"
+                        result = f"A bit closer to {str.lower(left_label)}, but almost balanced ({round(position, 1)}%)"
                     elif position <= 55:
-                        result = "Сбалансированное"
+                        result = "Balanced"
                     elif position <= 70:
-                        result = f"Немного {right_label}, но ещё умеренно ({round(position, 1)}%)"
+                        result = f"Slightly {str.lower(right_label)}, but still moderate ({round(position, 1)}%)"
                     elif position <= 90:
-                        result = f"Скорее {right_label}, выраженное ({round(position, 1)}%)"
+                        result = f"Mostly {str.lower(right_label)}, pronounced ({round(position, 1)}%)"
                     else:
-                        result = f"Полностью {right_label} ({round(position, 1)}%)"
+                        result = f"Completely {str.lower(right_label)} ({round(position, 1)}%)"
 
                     taste_profile[char_name] = result
 
@@ -529,15 +568,15 @@ def parse_wine(wine_name, headless=False):
             driver.get("https://www.vivino.com/")
             setup_cookies(driver)
 
-            wine_url = search_vivino(wine_name, driver)
+            wine_url, actual_driver = search_vivino(wine_name, driver, headless=headless)
             if not wine_url:
                 raise Exception("Не удалось найти URL вина")
 
-            file_path = save_html_with_scroll(wine_name, wine_url, driver=driver)
+            file_path = save_html_with_scroll(wine_name, wine_url, driver=actual_driver)
             if not file_path:
                 raise Exception("Не удалось сохранить страницу")
 
-            save_cookies(driver)
+            save_cookies(actual_driver)
 
             with open(file_path, "r", encoding="utf-8") as file:
                 soup = BeautifulSoup(file, "lxml")
@@ -551,27 +590,29 @@ def parse_wine(wine_name, headless=False):
                     "Food Pairing": get_food_pairing(soup),
                     "Taste Profile": get_taste_profile(soup),
                     "Image": get_wine_image(soup),
-                    "Notes": get_wine_tasting_notes(wine_url, driver)
+                    "Notes": get_wine_tasting_notes(wine_url, actual_driver)
                 })
         except Exception as e:
             logging.error(f"Ошибка при парсинге: {str(e)}")
             try:
-                save_cookies(driver)  # Резервное сохранение при ошибке
+                save_cookies(actual_driver)  # Резервное сохранение при ошибке
             except Exception as e:
                 logging.error(f"Ошибка при резервном сохранении куки: {e}")
-
-    try:
-        save_to_cache(wine_name, wine_info)
-        logging.info(f"Данные для {wine_name} сохранены в кэш")
-    except Exception as e:
-        logging.error(f"Ошибка кэширования: {str(e)}")
+    if wine_info.get("Brand") and wine_info.get("Name"):
+        try:
+            save_to_cache(wine_name, wine_info)
+            logging.info(f"Данные для {wine_name} сохранены в кэш")
+        except Exception as e:
+            logging.error(f"Ошибка кэширования: {str(e)}")
+    else:
+        logging.warning(f"Парсинг не удался, данные для {wine_name} не сохранены в кэш")
 
     return wine_info
 
 """Для отладки"""
-if __name__ == "__main__":
-    start_time = time.perf_counter()
-    wine_data = parse_wine('крым', headless=True)
-    pprint(wine_data, sort_dicts=False)
-    print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
+# if __name__ == "__main__":
+#     start_time = time.perf_counter()
+#     wine_data = parse_wine('крым', headless=True)
+#     pprint(wine_data, sort_dicts=False)
+#     print(f"Время выполнения: {time.perf_counter() - start_time:.4f} секунд")
 
