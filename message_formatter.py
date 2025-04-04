@@ -69,7 +69,7 @@ def format_wine_markdown(data):
 
     image_url = data.get("Image")
     if image_url:
-        lines.append(f"\n📷 [Image Link](https:{(image_url)})")
+        lines.append(f"\n📷 [Фото вина](https:{(image_url)})")
 
     return "\n".join(lines)
 

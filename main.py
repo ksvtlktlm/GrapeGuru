@@ -26,27 +26,12 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 
-def send_wine_image(bot, chat_id, image_url, caption=None):
-    try:
-        response = requests.get(image_url)
-        response.raise_for_status()
-        image_data = BytesIO(response.content)
-
-        bot.send_photo(
-            chat_id=chat_id,
-            photo=image_data,
-            caption=caption or "Фото вина"
-        )
-    except Exception as e:
-        print(f"Ошибка при отправке фото: {e}")
-
-
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
     await message.answer("Привет! Это бот вина!")
 
     # Отправляем тестовое вино
-    wine_data = parse_wine('Cabernet blanc', headless=False)
+    wine_data = parse_wine('Cabernet', headless=False)
     wine_text = format_wine_markdown(wine_data)
     if wine_text == "Не удалось найти информацию по данному вину.":
         await message.answer(escape_markdown("❌ Не удалось найти вино!"), parse_mode="MarkdownV2")
@@ -58,10 +43,6 @@ async def start_command(message: types.Message):
         parse_mode="MarkdownV2"
     )
 
-    # image_url = wine_data.get("Image")
-    # if image_url:
-    #     full_image_url = "https:" + image_url
-    #     await send_wine_image(bot, message.chat.id, full_image_url, caption=wine_data.get("Name"))
 
 async def main():
     await dp.start_polling(bot)
