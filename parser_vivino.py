@@ -17,7 +17,6 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import undetected_chromedriver as uc
 from cache_manager import load_cached_wine, save_to_cache
 
 
@@ -185,7 +184,6 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             if "access denied" in drv.page_source.lower():
                 raise Exception("Обнаружена страница блокировки")
 
-            # accept_cookies(drv)
             search_box = WebDriverWait(drv, 20).until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)))
 
@@ -216,20 +214,36 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
 
             for i in range(0, drv.execute_script("return document.body.scrollHeight"), 300):
                 drv.execute_script(f"window.scrollTo(0, {i});")
-                time.sleep(0.2)
+                time.sleep(0.1)
 
             drv.execute_script("window.scrollTo(0, 0);")
 
-            WebDriverWait(drv, search_timeout).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, "div[data-vintage]")))
+            try:
 
-            vintage_el = WebDriverWait(drv, 30).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]"))
-            )
-            vintage_id = vintage_el.get_attribute("data-vintage")
-            wine_url = f"https://www.vivino.com/wines/{vintage_id}"
-            logging.info(f"Успешно найдено вино: {wine_url}")
-            return wine_url
+                vintage_el = WebDriverWait(drv, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]"))
+                )
+                vintage_id = vintage_el.get_attribute("data-vintage")
+                wine_url = f"https://www.vivino.com/wines/{vintage_id}"
+                logging.info(f"Успешно найдено вино: {wine_url}")
+                return wine_url
+
+            except TimeoutException:
+                logging.warning("Не нашли data-vintage, пробуем открыть первую карточку по ссылке...")
+
+                try:
+                    link_el = WebDriverWait(drv, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "a[data-testid='vintagePageLink']"))
+                    )
+                    href = link_el.get_attribute("href")
+                    if not href.startswith("http"):
+                        href = "https://www.vivino.com" + href
+                    wine_url = href
+                    return wine_url
+
+                except Exception as e:
+                    logging.error(f"Не удалось найти или открыть карточку: {e}")
+                    return None
 
         except Exception as e:
             logging.error(f"Ошибка при поиске: {e}")
