@@ -188,7 +188,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
 
             for char in wine_name:  # Имитация ввода человеком
                 search_box.send_keys(char)
-                time.sleep(random.uniform(0.1, 0.3))
+                time.sleep(random.uniform(0.1, 0.2))
             time.sleep(0.5)
             search_box.send_keys(Keys.RETURN)
             logging.info("Название вина отправлено в поиск")
@@ -211,15 +211,15 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             except TimeoutException:
                 pass
 
-            for i in range(0, drv.execute_script("return document.body.scrollHeight"), 300):
-                drv.execute_script(f"window.scrollTo(0, {i});")
-                time.sleep(0.1)
-
-            drv.execute_script("window.scrollTo(0, 0);")
+            # for i in range(0, drv.execute_script("return document.body.scrollHeight"), 300):
+            #     drv.execute_script(f"window.scrollTo(0, {i});")
+            #     time.sleep(0.1)
+            #
+            # drv.execute_script("window.scrollTo(0, 0);")
 
             try:
 
-                vintage_el = WebDriverWait(drv, 5).until(
+                vintage_el = WebDriverWait(drv, 3).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]"))
                 )
                 vintage_id = vintage_el.get_attribute("data-vintage")
@@ -376,19 +376,19 @@ def get_taste_profile(soup):
 
                     char_name = f"{left_label} - {right_label}"
                     if position <= 10:
-                        result = f"Completely {str.lower(left_label)} ({round(position, 1)}%)"
+                        result = f"Completely {str.lower(left_label)}"
                     elif position <= 30:
-                        result = f"Mostly {str.lower(left_label)}, but with a slight tendency ({round(position, 1)}%)"
+                        result = f"Mostly {str.lower(left_label)}, but with a slight tendency"
                     elif position <= 45:
-                        result = f"A bit closer to {str.lower(left_label)}, but almost balanced ({round(position, 1)}%)"
+                        result = f"A bit closer to {str.lower(left_label)}, but almost balanced"
                     elif position <= 55:
                         result = "Balanced"
                     elif position <= 70:
-                        result = f"Slightly {str.lower(right_label)}, but still moderate ({round(position, 1)}%)"
+                        result = f"Slightly {str.lower(right_label)}, but still moderate"
                     elif position <= 90:
-                        result = f"Mostly {str.lower(right_label)}, pronounced ({round(position, 1)}%)"
+                        result = f"Mostly {str.lower(right_label)}, pronounced"
                     else:
-                        result = f"Completely {str.lower(right_label)} ({round(position, 1)}%)"
+                        result = f"Completely {str.lower(right_label)})"
 
                     taste_profile[char_name] = result
 

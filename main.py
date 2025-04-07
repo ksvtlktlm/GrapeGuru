@@ -11,7 +11,7 @@ from aiogram.fsm.state import State, StatesGroup
 import requests
 from io import BytesIO
 from message_formatter import escape_markdown, format_wine_markdown
-from parser_vivino import parse_wine
+# from parser_vivino import parse_wine
 
 
 # Настройка логирования
@@ -41,7 +41,7 @@ async def handle_wine_name(message: types.Message):
         await message.answer(escape_markdown("❌ Не удалось найти вино!"), parse_mode="MarkdownV2")
         return
     else:
-        await message.answer(escape_markdown("🤖 Я проанализировал винную базу и вот, что нашёл для тебя\\:"), parse_mode="MarkdownV2")
+        await message.answer(escape_markdown("🤖 Я проанализировал винную базу и вот, что нашёл для тебя\n:"), parse_mode="MarkdownV2")
 
         await bot.send_message(
             chat_id=message.chat.id,
