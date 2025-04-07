@@ -4,7 +4,6 @@ from pprint import pprint
 import random
 import os
 import logging
-import pickle
 
 
 from bs4 import BeautifulSoup
@@ -87,45 +86,8 @@ def get_chrome_options(headless=False, disable_js=False, disable_images=True):
     return options
 
 
-def save_cookies(driver, path="cookies.pkl"):
-    """Сохраняет куки в файл с обработкой ошибок"""
-    try:
-        cookies = driver.get_cookies()
-        if not cookies:
-            logging.warning("Нет куки для сохранения")
-            return False
-
-        with open(path, "wb") as file:
-            pickle.dump(driver.get_cookies(), file)
-        logging.info("Куки сохранены")
-        time.sleep(1)
-        return True
-    except Exception as e:
-        logging.error(f"Ошибка сохранения куки: {e}")
-        return False
-
-
-def load_cookies(driver, path="cookies.pkl"):
-    """Загружает куки из файла."""
-    if not os.path.exists(path):
-        logging.warning("Файл куки не найден")
-        return False
-
-    try:
-        with open(path, "rb") as file:
-            cookies = pickle.load(file)
-            for cookie in cookies:
-                if "name" in cookie and "value" in cookie:
-                    driver.add_cookie(cookie)
-        logging.info("Куки загружены")
-        return True
-    except Exception as e:
-        logging.error(f"Ошибка загрузки куки: {e}")
-        return False
-
-
-def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
-    """Принимает куки и сохраняет их в файл."""
+def accept_cookies(driver):
+    """Принимает куки."""
     try:
         WebDriverWait(driver, 20).until(lambda d: "vivino.com" in d.current_url)
 
@@ -147,7 +109,6 @@ def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
         )
 
         logging.info("Куки приняты и окно закрыто")
-        save_cookies(driver, path=cookie_path)
         return True
 
     except TimeoutException:
@@ -156,17 +117,6 @@ def accept_and_save_cookies(driver, cookie_path="cookies.pkl"):
     except Exception as e:
         logging.error(f"Ошибка при принятии куки: {e}")
         return False
-
-
-def setup_cookies(driver, cookie_path="cookies.pkl"):
-    """
-    Основная функция — загружает куки, если есть. Если нет — принимает и сохраняет.
-    """
-    if not load_cookies(driver, cookie_path):
-        logging.info("Пробуем принять новые куки...")
-        accept_and_save_cookies(driver, cookie_path)
-    else:
-        driver.refresh()
 
 
 def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages", max_scroll_attempts=5):
@@ -185,12 +135,6 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
     try:
         driver.set_page_load_timeout(30)
         driver.get(url)
-
-        if not driver.get_cookies():  # Если cookies пустые
-            load_cookies(driver)
-            driver.refresh()  # Обновление страницы для активации куки
-            if not driver.get_cookies():
-                logging.warning("Предупреждение: Cookies не загрузились после refresh")
 
         # Скроллинг до конца страницы
         scroll_attempt = 0
@@ -235,14 +179,13 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
 
     def try_search(drv):
         try:
-            drv.set_page_load_timeout(15)
+            # drv.set_page_load_timeout(15)
             time.sleep(random.uniform(1, 3))
-            drv.get("https://www.vivino.com/")
+
             if "access denied" in drv.page_source.lower():
                 raise Exception("Обнаружена страница блокировки")
 
-            setup_cookies(drv)
-
+            # accept_cookies(drv)
             search_box = WebDriverWait(drv, 20).until(
                 EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)))
 
@@ -309,8 +252,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             temp_driver = setup_driver(headless=headless)
             time.sleep(2)
             temp_driver.get("https://www.vivino.com/")
-            setup_cookies(temp_driver)
-            logging.info("Драйвер жив после загрузки куки")
+            accept_cookies(temp_driver)
             wine_url = try_search(temp_driver)
             return wine_url, temp_driver
         except Exception as e:
@@ -566,17 +508,28 @@ def parse_wine(wine_name, headless=False):
     with setup_driver(headless=headless) as driver:
         try:
             driver.get("https://www.vivino.com/")
-            setup_cookies(driver)
+
+            accept_cookies(driver)
 
             wine_url, actual_driver = search_vivino(wine_name, driver, headless=headless)
+
+            if wine_url == "NO_RESULTS":
+                actual_driver.quit()
+                logging.warning(f"Вино '{wine_name}' не найдено из-за внутренней ошибки. Поиск завершён.")
+                return {}
+
             if not wine_url:
+                if actual_driver:
+                    actual_driver.quit()
                 raise Exception("Не удалось найти URL вина")
+
+            if actual_driver is None:
+                raise Exception("Драйвер не инициализирован корректно")
 
             file_path = save_html_with_scroll(wine_name, wine_url, driver=actual_driver)
             if not file_path:
                 raise Exception("Не удалось сохранить страницу")
 
-            save_cookies(actual_driver)
 
             with open(file_path, "r", encoding="utf-8") as file:
                 soup = BeautifulSoup(file, "lxml")
@@ -589,15 +542,17 @@ def parse_wine(wine_name, headless=False):
                     "Rating": get_rating(soup),
                     "Food Pairing": get_food_pairing(soup),
                     "Taste Profile": get_taste_profile(soup),
-                    "Image": get_wine_image(soup),
-                    "Notes": get_wine_tasting_notes(wine_url, actual_driver)
+                    "Image": get_wine_image(soup)
                 })
+
+                if actual_driver is None:
+                    raise Exception("Невозможно получить tasting notes — драйвер неактивен")
+
+                wine_info["Notes"] = get_wine_tasting_notes(wine_url, actual_driver)
+
         except Exception as e:
             logging.error(f"Ошибка при парсинге: {str(e)}")
-            try:
-                save_cookies(actual_driver)  # Резервное сохранение при ошибке
-            except Exception as e:
-                logging.error(f"Ошибка при резервном сохранении куки: {e}")
+
     if wine_info.get("Brand") and wine_info.get("Name"):
         try:
             save_to_cache(wine_name, wine_info)

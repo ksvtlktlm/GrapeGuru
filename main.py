@@ -31,7 +31,7 @@ async def start_command(message: types.Message):
     await message.answer("Привет! Это бот вина!")
 
     # Отправляем тестовое вино
-    wine_data = parse_wine('Cabernet', headless=False)
+    wine_data = parse_wine('Legaris Verdejo', headless=False)
     wine_text = format_wine_markdown(wine_data)
     if wine_text == "Не удалось найти информацию по данному вину.":
         await message.answer(escape_markdown("❌ Не удалось найти вино!"), parse_mode="MarkdownV2")
