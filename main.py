@@ -28,20 +28,26 @@ dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
-    await message.answer("Привет! Это бот вина!")
+    await message.answer("Привет! Я бот, который помогает подобрать вино 🍷\nНапиши название вина, и я попробую найти информацию.")
 
-    # Отправляем тестовое вино
-    wine_data = parse_wine('Legaris Verdejo', headless=False)
+@dp.message()
+async def handle_wine_name(message: types.Message):
+    wine_name = message.text.strip()
+    await message.answer(f"🔍 Ищу вино: *{escape_markdown(wine_name)}\n*", parse_mode="MarkdownV2")
+
+    wine_data = parse_wine(wine_name=wine_name, headless=False)
     wine_text = format_wine_markdown(wine_data)
     if wine_text == "Не удалось найти информацию по данному вину.":
         await message.answer(escape_markdown("❌ Не удалось найти вино!"), parse_mode="MarkdownV2")
         return
+    else:
+        await message.answer(escape_markdown("🤖 Я проанализировал винную базу и вот, что нашёл для тебя\\:"), parse_mode="MarkdownV2")
 
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=wine_text,
-        parse_mode="MarkdownV2"
-    )
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=wine_text,
+            parse_mode="MarkdownV2"
+        )
 
 
 async def main():

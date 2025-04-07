@@ -178,8 +178,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
 
     def try_search(drv):
         try:
-            # drv.set_page_load_timeout(15)
-            time.sleep(random.uniform(1, 3))
+            time.sleep(random.uniform(1, 2))
 
             if "access denied" in drv.page_source.lower():
                 raise Exception("Обнаружена страница блокировки")
@@ -190,7 +189,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             for char in wine_name:  # Имитация ввода человеком
                 search_box.send_keys(char)
                 time.sleep(random.uniform(0.1, 0.3))
-            time.sleep(1)
+            time.sleep(0.5)
             search_box.send_keys(Keys.RETURN)
             logging.info("Название вина отправлено в поиск")
 
