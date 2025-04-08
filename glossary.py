@@ -291,6 +291,7 @@ WINE_GLOSSARY = {
     "dried apricot": "курага",
     "dried cranberry": "сушёная клюква",
     "fruitcake": "фруктовый кекс",
+    "dried blueberry": "сушеная черника",
 
 
     # Аллергены
@@ -497,6 +498,19 @@ WINE_GLOSSARY = {
     "Diam": "Диам (техническая пробка)",
     "Zork": "Зорк (комбинированная пробка)",
     "Vinolok": "Вино-лок (стеклянный замок)",
+    "Rebo": "Ребо",
+    "Pignolo": "Пиньоло",
+    "Piculit Neri": "Пикулит Нери",
+    "Tintilia": "Тинтилия",
+    "Lacrima di Morro": "Лакрима ди Морро",
+    "Colorino": "Колорино",
+    "Ruchè": "Руке",
+    "Grignolino": "Гриньолино",
+    "Alfrocheiro": "Алфрокейру",
+    "Jampal": "Жампаль",
+    "Tamjanika": "Тамьяника",
+    "Melnik": "Мелник",
+    "Saperavi Budeshuriseburi": "Саперави Будешурисебури",
 
 
     # Стили вина
@@ -857,6 +871,8 @@ WINE_GLOSSARY = {
     "Lefkadia Valley White": "Лефкадия белое",
     "Usadba Divnomorskoe": "Усадьба Дивноморское",
     "Abrau-Durso Brut": "Абрау-Дюрсо Брют",
+    "Ukrainian Red": "Красное",
+    "Ukrainian White": "Белое",
     "Abrau-Durso Rosé": "Абрау-Дюрсо Розовое",
     "Abrau-Durso Semi-Sweet": "Абрау-Дюрсо Полусладкое",
     "Russian Ice Wine": "Российское ледяное вино",
@@ -970,6 +986,7 @@ REGION_TRANSLATIONS = {
     "Taman Peninsula": "Полуостров Тамань",
     "Anapa": "Анапа",
     "Sennoi": "п. Сенной",
+    "Gelendzhik": "Геленджик",
 
     "Abkhazia": "Абхазия",
     "Gudauta": "Гудаута",

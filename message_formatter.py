@@ -38,7 +38,7 @@ def format_wine_markdown(data):
 
     basic_info = data.get("Basic Info", {})
     if basic_info:
-        lines.append("\n*📌 Основная информация:*")
+        lines.append("\n*📌 Основная информация:*\n")
         for key, value in basic_info.items():
             if key == "Сорт винограда" and isinstance(value, list):
                 lines.append(f"*Сорта винограда:* " + ", ".join(escape_markdown(g) for g in value))
@@ -57,7 +57,7 @@ def format_wine_markdown(data):
     if isinstance(taste, dict):
         lines.append("\n*🔎 Вкусовой профиль:*")
         for axis, desc in taste.items():
-            lines.append(str.capitalize(f"_\- {escape_markdown(axis)}_: {escape_markdown(desc)}"))
+            lines.append(str.capitalize(f"_{escape_markdown(axis)}_: {escape_markdown(desc)}"))
 
     notes = data.get("Notes")
     if isinstance(notes, dict):
@@ -69,7 +69,7 @@ def format_wine_markdown(data):
 
     image_url = data.get("Image")
     if image_url:
-        lines.append(f"\n📷 [Фото вина](https:{(image_url)})")
+        lines.append(f"\n📷 [Посмотреть бутылку вина](https:{(image_url)})")
 
     return "\n".join(lines)
 

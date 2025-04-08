@@ -565,6 +565,12 @@ def parse_wine(wine_name, headless=False):
     else:
         logging.warning(f"Парсинг не удался, данные для {wine_name} не сохранены в кэш")
 
+    try:
+        os.remove(file_path)
+        logging.info(f"Файл {file_path} удалён после парсинга")
+    except Exception as e:
+        logging.warning(f"Не удалось удалить файл {file_path}: {e}")
+
     return wine_info
 
 """Для отладки"""
