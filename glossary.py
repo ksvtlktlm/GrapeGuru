@@ -900,6 +900,22 @@ WINE_GLOSSARY = {
     "Russian Fortified Wine": "Российское креплёное вино",
     "Russian Semi-sweet Red": "Российское полусладкое красное",
     "Russian Semi-sweet White": "Российское полусладкое белое",
+    "Garnacha": "Гарнача",
+    "Garnacha Blanca": "Гарнача Бланка",
+    "Garnacha Tintorera": "Гарнача Тинторера",
+    "Garnacha Peluda": "Гарнача Пелуда",
+    "Lladoner Pelut": "Льядонер Пелут",
+    "Hairy Grenache": "Волосатая Гренаш (клон Гарначи)",
+    "Navarra Garnacha": "Гарнача из Наварры",
+    "Aragonés": "Арагонес (синоним Гарначи в Испании)",
+    "Grenache Gris": "Гренаш Гри",
+    "Grenache Blanc": "Гренаш Блан",
+    "Grenache Noir": "Гренаш Нуар",
+    "Grenache Rouge": "Гренаш Руж",
+    "Alicante Bouschet": "Алікант Буше (гибрид, родственный Гарначе)",
+    "Moristel": "Мористель (региональный сорт, родственный Гарначе)",
+    "Samsó": "Самсо (синоним Кариньян, но часто используется с Гарначей)",
+    "Tempranillo Peludo": "Темпранильо Пелудо (редкий пушистый клон, иногда выращивается рядом с Гарначей)"
 }
 
 REGION_TRANSLATIONS = {
@@ -912,6 +928,8 @@ REGION_TRANSLATIONS = {
     "Galicia": "Галисия",
     "Andalusia": "Андалусия",
     "Navarra": "Наварра",
+    "Aragón": "Арагон",
+    "Calatayud": "Calatayud",
 
     "France": "Франция",
     "Bordeaux": "Бордо",
@@ -922,6 +940,8 @@ REGION_TRANSLATIONS = {
     "Rhone Valley": "Долина Роны",
     "Languedoc-Roussillon": "Лангедок-Руссильон",
     "Provence": "Прованс",
+    "Montagne de Reims": "Монтань-де-Реймс",
+    "Champagne Grand Cru 'Bouzy": "Шампань Гран Крю «Бузи»",
 
     "Italy": "Италия",
     "Tuscany": "Тоскана",

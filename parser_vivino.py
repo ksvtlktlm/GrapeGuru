@@ -382,7 +382,7 @@ def get_taste_profile(soup):
                     elif position <= 90:
                         result = f"Mostly {str.lower(right_label)}, pronounced"
                     else:
-                        result = f"Completely {str.lower(right_label)})"
+                        result = f"Completely {str.lower(right_label)}"
 
                     taste_profile[char_name] = result
 
@@ -399,7 +399,8 @@ def get_wine_image(soup):
     """Парсит изображение вина"""
     try:
         img_container = soup.find("picture", class_=re.compile(r"^wineLabel-module__picture"))
-        img_url = img_container.next.get("srcset").split(",")[0]
+        # img_url = img_container.next.get("srcset").split(",")[1]
+        img_url = img_container.find("source").get("srcset").split(",")[1].split()[0]
         return img_url if img_url else "Изображение не найдено"
     except Exception as e:
         logging.error(f"Ошибка при парсинге изображения: {e}")

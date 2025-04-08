@@ -49,9 +49,9 @@ def format_wine_markdown(data):
     if food:
         lines.append("\n*🍽️ Гастрономические сочетания:*")
         if isinstance(food, list):
-            lines.append(str.capitalize(", ".join(map(escape_markdown, food))))
+            lines.append(str.lower(", ".join(map(escape_markdown, food))))
         else:
-            lines.append(str.capitalize(escape_markdown(food)))
+            lines.append(str.lower(escape_markdown(food)))
 
     taste = data.get("Taste Profile")
     if isinstance(taste, dict):
