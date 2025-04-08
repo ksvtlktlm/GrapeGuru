@@ -45,7 +45,7 @@ def setup_driver(headless=False):
         options = get_chrome_options(headless=headless)
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
-        driver.implicitly_wait(5)
+        driver.implicitly_wait(3)
         return driver
 
     except Exception as e:
@@ -193,7 +193,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             search_box.send_keys(Keys.RETURN)
             logging.info("Название вина отправлено в поиск")
 
-            time.sleep(random.uniform(1, 3))
+            time.sleep(random.uniform(1, 2))
 
             if "access denied" in drv.page_source.lower():
                 raise Exception("Обнаружена страница блокировки")
@@ -211,15 +211,9 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             except TimeoutException:
                 pass
 
-            # for i in range(0, drv.execute_script("return document.body.scrollHeight"), 300):
-            #     drv.execute_script(f"window.scrollTo(0, {i});")
-            #     time.sleep(0.1)
-            #
-            # drv.execute_script("window.scrollTo(0, 0);")
-
             try:
 
-                vintage_el = WebDriverWait(drv, 3).until(
+                vintage_el = WebDriverWait(drv, 2).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-vintage]"))
                 )
                 vintage_id = vintage_el.get_attribute("data-vintage")
@@ -263,7 +257,7 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
         try:
             driver.quit()
             temp_driver = setup_driver(headless=headless)
-            time.sleep(2)
+            time.sleep(1.5)
             temp_driver.get("https://www.vivino.com/")
             accept_cookies(temp_driver)
             wine_url = try_search(temp_driver)
@@ -464,7 +458,7 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
     """Парсит первые 3 видимые вкусовые карточки без прокрутки"""
     try:
         driver.get(url)
-        time.sleep(2)
+        time.sleep(1)
 
         slider = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located(
@@ -479,9 +473,6 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
         for card in cards[:3]:
             try:
                 group = card.find_element(By.XPATH, ".//span[contains(@class, 'tasteNote__flavorGroup')]").text.strip()
-                mentions = int(
-                    card.find_element(By.XPATH, ".//div[contains(@class, 'tasteNote__mentions')]").text.split()[0])
-
                 card.find_element(By.XPATH, ".//button[contains(@class, 'card__card')]").click()
                 modal = WebDriverWait(driver, 5).until(
                     EC.visibility_of_element_located((By.XPATH, "//div[contains(@id, 'baseModal')]")))
@@ -490,19 +481,18 @@ def get_wine_tasting_notes(url, driver, notes_limit=4):
                               modal.find_elements(By.XPATH, ".//div[contains(@class, 'noteTag__name')]")][:3]
                 modal.find_element(By.XPATH, "//a[contains(@aria-label, 'Close')]").click()
                 time.sleep(0.3)
-                notes[group] = {"mentions": mentions, "notes": notes_list}
+                notes[group] = notes_list
 
             except Exception as e:
                 logging.error(f"Пропущена карточка: {str(e)}")
                 continue
 
-        return dict(sorted(notes.items(),
-                           key=lambda x: x[1]["mentions"],
-                           reverse=True)[:notes_limit])
+        return notes
 
     except Exception as e:
         logging.error(f"Ошибка парсинга: {str(e)}")
         return "Не найдены"
+
 
 
 def parse_wine(wine_name, headless=False):
