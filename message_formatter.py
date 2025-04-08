@@ -3,7 +3,7 @@ import logging
 from parser_vivino import parse_wine
 
 
-def escape_markdown(text: str) -> str:
+def escape_markdown(text):
     """Экранирует только нужные символы по спецификации Telegram MarkdownV2."""
     if not isinstance(text, str):
         text = str(text)
@@ -26,46 +26,46 @@ def format_wine_markdown(data):
 
     brand = data.get("Brand")
     if brand:
-        lines.append(f"*Brand:* {escape_markdown(brand)}")
+        lines.append(f"*Бренд:* {escape_markdown(brand)}")
 
     wine_type = data.get("Type")
     if wine_type:
-        lines.append(f"*Type:* {escape_markdown(wine_type)}")
+        lines.append(f"*Тип вина:* {escape_markdown(wine_type)}")
 
     rating = data.get("Rating")
     if rating:
-        lines.append(f"*⭐️ Rating:* {escape_markdown(rating)}/5")
+        lines.append(f"*⭐️ Рейтинг:* {escape_markdown(rating)}/5")
 
     basic_info = data.get("Basic Info", {})
     if basic_info:
-        lines.append("\n*📌 Basic Information:*")
+        lines.append("\n*📌 Основная информация:*")
         for key, value in basic_info.items():
-            if key == "Grapes" and isinstance(value, list):
-                lines.append(f"*Grapes:* " + ", ".join(escape_markdown(g) for g in value))
+            if key == "Сорт винограда" and isinstance(value, list):
+                lines.append(f"*Сорта винограда:* " + ", ".join(escape_markdown(g) for g in value))
             else:
                 lines.append(f"*{escape_markdown(key)}:* {escape_markdown(str(value))}")
 
     food = data.get("Food Pairing")
     if food:
-        lines.append("\n*🍽️ Food Pairing:*")
+        lines.append("\n*🍽️ Гастрономические сочетания:*")
         if isinstance(food, list):
-            lines.append(", ".join(map(escape_markdown, food)))
+            lines.append(str.capitalize(", ".join(map(escape_markdown, food))))
         else:
-            lines.append(escape_markdown(food))
+            lines.append(str.capitalize(escape_markdown(food)))
 
     taste = data.get("Taste Profile")
     if isinstance(taste, dict):
-        lines.append("\n*🔎 Taste Profile:*")
+        lines.append("\n*🔎 Вкусовой профиль:*")
         for axis, desc in taste.items():
-            lines.append(f"_\- {escape_markdown(axis)}_: {escape_markdown(desc)}")
+            lines.append(str.capitalize(f"_\- {escape_markdown(axis)}_: {escape_markdown(desc)}"))
 
     notes = data.get("Notes")
     if isinstance(notes, dict):
-        lines.append("\n*📝 Tasting Notes:*")
+        lines.append("\n*📝 Ноты вина:*")
         for category, content in notes.items():
-            mentions = content.get("mentions", 0)
-            sub_notes = ", ".join(map(escape_markdown, content.get("notes", [])))
-            lines.append(f"_\- {escape_markdown(category.title())}_ \({mentions} mentions\): {sub_notes}")
+            sub_notes_raw = ", ".join(content)
+            sub_notes = escape_markdown(sub_notes_raw)
+            lines.append(str.capitalize(f"_{escape_markdown(category.title())}_: {sub_notes}"))
 
     image_url = data.get("Image")
     if image_url:
@@ -73,8 +73,10 @@ def format_wine_markdown(data):
 
     return "\n".join(lines)
 
+    # Для отладки
 
-if __name__ == "__main__":
-    wine_data = parse_wine("Château Margaux", headless=True)
-    translated = format_wine_markdown(wine_data)
-    print(json.dumps(translated, indent=2, ensure_ascii=False))
+
+# if __name__ == "__main__":
+#     wine_data = parse_wine("Château Margaux", headless=True)
+#     translated = format_wine_markdown(wine_data)
+#     print(json.dumps(translated, indent=2, ensure_ascii=False))

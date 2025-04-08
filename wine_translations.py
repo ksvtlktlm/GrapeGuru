@@ -1,7 +1,4 @@
-from translatepy import Translator
-from parser_vivino import parse_wine
-from glossary import WINE_GLOSSARY
-from pprint import pprint
+from glossary import WINE_GLOSSARY, REGION_TRANSLATIONS
 
 
 def normalize_region_name(region):
@@ -13,14 +10,16 @@ def normalize_region_name(region):
         return "Крым"
     if "Крим" in region and "Україна" in region:
         return "Крым"
-    return region
+
+    parts = region.split(" / ")
+    translated_parts = [REGION_TRANSLATIONS.get(part.strip(), part.strip()) for part in parts]
+    return " / ".join(translated_parts)
 
 def translate_wine_data(wine_data):
     """Переводит все поля винного словаря на русский язык"""
     if not wine_data or not isinstance(wine_data, dict):
         return wine_data
 
-    translator = Translator()
     translated_wine_info = {}
 
     for key, value in wine_data.items():
@@ -30,6 +29,8 @@ def translate_wine_data(wine_data):
             if translated_key == "Basic Info" and isinstance(translated_inner, dict):
                 if "Регион" in translated_inner:
                     translated_inner["Регион"] = normalize_region_name(translated_inner["Регион"])
+                if "Wine description" in translated_inner:
+                    del translated_inner["Wine description"]
             translated_wine_info[translated_key] = translated_inner
 
         elif isinstance(value, list):
@@ -45,16 +46,7 @@ def translate_wine_data(wine_data):
                 if translated:
                     translated_wine_info[translated_key] = translated
                 else:
-                    try:
-                        translated_wine_info[translated_key] = translator.translate(value)
-                    except Exception as e:
-                        translated_wine_info[translated_key] = value
+                    translated_wine_info[translated_key] = value
 
     return translated_wine_info
 
-
-
-wine_info = parse_wine("Массандра Мускат белый красного камня", headless=False)
-translated_wine_info = translate_wine_data(wine_info)
-# pprint(wine_info, sort_dicts=False)
-pprint(translated_wine_info, sort_dicts=False)

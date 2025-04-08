@@ -136,6 +136,7 @@ WINE_GLOSSARY = {
     "red currant": "красная смородина",
     "cranberry": "клюква",
     "red plum": "красная слива",
+    "pomegranate": "гранат",
 
     # Деревенские/землистые ноты
     "leather": "кожа",
@@ -293,8 +294,8 @@ WINE_GLOSSARY = {
 
 
     # Аллергены
-    "Contains sulfites": "Содержит сульфиты",
-    "Contains sulfites, egg allergens, milk allergens": "Содержит сульфиты, аллергены яиц и молока",
+    "Contains sulfites": "содержит сульфиты",
+    "Contains sulfites, egg allergens, milk allergens": "содержит сульфиты, аллергены яиц и молока",
 
 
     #Базовая информация
@@ -883,4 +884,105 @@ WINE_GLOSSARY = {
     "Russian Fortified Wine": "Российское креплёное вино",
     "Russian Semi-sweet Red": "Российское полусладкое красное",
     "Russian Semi-sweet White": "Российское полусладкое белое",
+}
+
+REGION_TRANSLATIONS = {
+    "Spain": "Испания",
+    "Rioja": "Риоха",
+    "Ribera del Duero": "Рибера-дель-Дуэро",
+    "Catalonia": "Каталония",
+    "Valencia": "Валенсия",
+    "Castilla-La Mancha": "Кастилия-Ла-Манча",
+    "Galicia": "Галисия",
+    "Andalusia": "Андалусия",
+    "Navarra": "Наварра",
+
+    "France": "Франция",
+    "Bordeaux": "Бордо",
+    "Burgundy": "Бургундия",
+    "Champagne": "Шампань",
+    "Loire Valley": "Долина Луары",
+    "Alsace": "Эльзас",
+    "Rhone Valley": "Долина Роны",
+    "Languedoc-Roussillon": "Лангедок-Руссильон",
+    "Provence": "Прованс",
+
+    "Italy": "Италия",
+    "Tuscany": "Тоскана",
+    "Piedmont": "Пьемонт",
+    "Veneto": "Венето",
+    "Sicily": "Сицилия",
+    "Lombardy": "Ломбардия",
+    "Trentino-Alto Adige": "Трентино-Альто-Адидже",
+    "Emilia-Romagna": "Эмилия-Романья",
+
+    "Germany": "Германия",
+    "Mosel": "Мозель",
+    "Rheingau": "Рейнгау",
+    "Pfalz": "Пфальц",
+    "Baden": "Баден",
+
+    "USA": "США",
+    "California": "Калифорния",
+    "Napa Valley": "Напа Вэлли",
+    "Sonoma": "Сонома",
+    "Washington": "Вашингтон",
+    "Oregon": "Орегон",
+
+    "Argentina": "Аргентина",
+    "Mendoza": "Мендоса",
+    "Patagonia": "Патагония",
+    "Salta": "Сальта",
+
+    "Chile": "Чили",
+    "Central Valley": "Центральная долина",
+    "Maipo Valley": "Маипо",
+    "Colchagua Valley": "Кольчагуа",
+    "Casablanca Valley": "Касабланка",
+
+    "South Africa": "ЮАР",
+    "Stellenbosch": "Стелленбош",
+    "Paarl": "Паарл",
+    "Walker Bay": "Уокер Бэй",
+
+    "Australia": "Австралия",
+    "Barossa Valley": "Долина Баросса",
+    "McLaren Vale": "Макларен Вейл",
+    "Yarra Valley": "Долина Ярра",
+
+    "Portugal": "Португалия",
+    "Douro": "Дору",
+    "Alentejo": "Алентежу",
+    "Vinho Verde": "Винью Верде",
+
+    "Georgia": "Грузия",
+    "Kakheti": "Кахетия",
+    "Imereti": "Имерети",
+    "Racha": "Рача",
+    "Kartli": "Картли",
+
+    "Russia": "Россия",
+    "Kuban": "Кубань",
+    "Don": "Дон",
+    "Don Valley": "Долина Дона",
+    "Crimea": "Крым",
+    "Taman": "Тамань",
+    "Taman Peninsula": "Полуостров Тамань",
+    "Anapa": "Анапа",
+    "Sennoi": "п. Сенной",
+
+    "Abkhazia": "Абхазия",
+    "Gudauta": "Гудаута",
+    "Sukhum": "Сухум",
+    "Gagra": "Гагра",
+
+    "Armenia": "Армения",
+    "Vayots Dzor": "Вайоц Дзор",
+    "Ararat": "Арарат",
+    "Armavir": "Армавир",
+
+    "Austria": "Австрия",
+    "Wachau": "Вахау",
+    "Burgenland": "Бургенланд",
+    "Styria": "Штирия",
 }

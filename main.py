@@ -11,7 +11,8 @@ from aiogram.fsm.state import State, StatesGroup
 import requests
 from io import BytesIO
 from message_formatter import escape_markdown, format_wine_markdown
-# from parser_vivino import parse_wine
+from parser_vivino import parse_wine
+from wine_translations import translate_wine_data
 
 
 # Настройка логирования
@@ -36,7 +37,8 @@ async def handle_wine_name(message: types.Message):
     await message.answer(f"🔍 Ищу вино: *{escape_markdown(wine_name)}\n*", parse_mode="MarkdownV2")
 
     wine_data = parse_wine(wine_name=wine_name, headless=False)
-    wine_text = format_wine_markdown(wine_data)
+    wine_data_translated = translate_wine_data(wine_data)
+    wine_text = format_wine_markdown(wine_data_translated)
     if wine_text == "Не удалось найти информацию по данному вину.":
         await message.answer(escape_markdown("❌ Не удалось найти вино!"), parse_mode="MarkdownV2")
         return
