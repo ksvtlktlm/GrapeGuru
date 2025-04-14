@@ -314,7 +314,7 @@ WINE_GLOSSARY = {
     "Lamb": "Баранина",
     "Pork": "Свинина",
     "Veal": "Телятина",
-    "Game (deer, venison)": "Дичь (оленина, мясо оленя)",
+    "Game (deer, venison)": "Дичь (оленина)",
     "Cured Meat": "Вяленое мясо",
 
     # Птица и другие
@@ -768,6 +768,7 @@ WINE_GLOSSARY = {
     "White Port": "Белый портвейн",
     "Tawny Port": "Тони портвейн",
     "Ruby Port": "Руби портвейн",
+    "Spanish Ribera Del Duero Red": "Испанское красное вино из Рибера-дель-Дуэро",
     "Late Bottled Vintage Port": "Поздний бутылочный винтажный портвейн",
     "Vintage Port": "Винтажный портвейн",
     "Greek Red": "Греческое красное вино",
@@ -912,7 +913,7 @@ WINE_GLOSSARY = {
     "Grenache Blanc": "Гренаш Блан",
     "Grenache Noir": "Гренаш Нуар",
     "Grenache Rouge": "Гренаш Руж",
-    "Alicante Bouschet": "Алікант Буше (гибрид, родственный Гарначе)",
+    "Alicante Bouschet": "Аликанте Буше (гибрид, родственный Гарначе)",
     "Moristel": "Мористель (региональный сорт, родственный Гарначе)",
     "Samsó": "Самсо (синоним Кариньян, но часто используется с Гарначей)",
     "Tempranillo Peludo": "Темпранильо Пелудо (редкий пушистый клон, иногда выращивается рядом с Гарначей)"
@@ -930,6 +931,7 @@ REGION_TRANSLATIONS = {
     "Navarra": "Наварра",
     "Aragón": "Арагон",
     "Calatayud": "Calatayud",
+    "Castilla y León": "Кастилия и Леон",
 
     "France": "Франция",
     "Bordeaux": "Бордо",

@@ -46,6 +46,9 @@ def translate_wine_data(wine_data):
                 if translated:
                     translated_wine_info[translated_key] = translated
                 else:
+                    untranslated_entry = f"{key} :: {value}"
+                    with open("untranslated_log.txt", "a", encoding="utf-8") as log_file:
+                        log_file.write(untranslated_entry + "\n")
                     translated_wine_info[translated_key] = value
 
     return translated_wine_info
