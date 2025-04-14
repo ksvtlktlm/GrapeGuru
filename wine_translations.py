@@ -1,6 +1,14 @@
 from glossary import WINE_GLOSSARY, REGION_TRANSLATIONS
 
 
+IGNORED_TRANSLATION_KEYS = {
+    "Rating",
+    "Image",
+    "Alcohol content",
+    "Region",
+}
+
+
 def normalize_region_name(region):
     """Корректирует отображение региона для целевой аудитории."""
     region = region.strip()
@@ -46,9 +54,10 @@ def translate_wine_data(wine_data):
                 if translated:
                     translated_wine_info[translated_key] = translated
                 else:
-                    untranslated_entry = f"{key} :: {value}"
-                    with open("untranslated_log.txt", "a", encoding="utf-8") as log_file:
-                        log_file.write(untranslated_entry + "\n")
+                    if key not in IGNORED_TRANSLATION_KEYS:
+                        untranslated_entry = f"{key} :: {value}"
+                        with open("untranslated_log.txt", "a", encoding="utf-8") as log_file:
+                            log_file.write(untranslated_entry + "\n")
                     translated_wine_info[translated_key] = value
 
     return translated_wine_info
