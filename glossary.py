@@ -170,6 +170,7 @@ WINE_GLOSSARY = {
     "pencil shavings": "стружка карандаша",
     "pencil lead": "грифель карандаша",
     "salt": "соль",
+    "saline": "солоноватые ноты",
 
     # Плодовые
     "peach": "персик",
@@ -354,6 +355,9 @@ WINE_GLOSSARY = {
     "Pansa Blanca": "Панса Бланка",
     "Syrah": "Сира",
     "Shiraz": "Шираз",
+    "Tempranillo Blanco": "Темпранильо Бланко",
+    "Malvasia": "Мальвазия",
+    "Viura": "Виура",
     "Grenache": "Гренаш",
     "Tempranillo": "Темпранильо",
     "Malbec": "Мальбек",

@@ -38,7 +38,7 @@ async def handle_wine_name(message: types.Message):
     wine_name = message.text.strip()
     await message.answer(f"🔍 Ищу вино: *{escape_markdown(wine_name)}\n*", parse_mode="MarkdownV2")
 
-    wine_data = parse_wine(wine_name=wine_name, headless=True)
+    wine_data = await asyncio.to_thread(parse_wine, wine_name=wine_name, headless=True)
     wine_data_translated = translate_wine_data(wine_data)
     wine_text = format_wine_markdown(wine_data_translated)
     if wine_text == "Не удалось найти информацию по данному вину.":

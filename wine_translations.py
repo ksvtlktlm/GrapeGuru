@@ -19,6 +19,13 @@ def normalize_region_name(region):
     if "Крим" in region and "Україна" in region:
         return "Крым"
 
+    if "Cava" in region:
+        parts = region.split(" / ")
+        parts = [part for part in parts if part.strip().lower() != "cava"]
+        if not parts:
+            return "Каталония"
+        region = " / ".join(parts)
+
     parts = region.split(" / ")
     translated_parts = [REGION_TRANSLATIONS.get(part.strip(), part.strip()) for part in parts]
     return " / ".join(translated_parts)

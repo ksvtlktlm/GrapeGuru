@@ -119,7 +119,7 @@ def accept_cookies(driver):
         return False
 
 
-def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages", max_scroll_attempts=5):
+def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached_pages", max_scroll_attempts=2):
     """
     Прокручивает страницу с помощью Selenium, сохраняет HTML и возвращает путь к файлу.
     Если файл уже существует — повторно не загружает.
@@ -141,7 +141,7 @@ def save_html_with_scroll(wine_name, url, driver, headless=False, folder="cached
         last_height = driver.execute_script("return document.body.scrollHeight")
         while scroll_attempt < max_scroll_attempts:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1 + random.random())
+            time.sleep(0.3 + random.uniform(0, 0.2))
             new_height = driver.execute_script("return document.body.scrollHeight")
             if new_height == last_height:
                 break
