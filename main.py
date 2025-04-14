@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
@@ -33,6 +34,7 @@ async def start_command(message: types.Message):
 
 @dp.message()
 async def handle_wine_name(message: types.Message):
+    start_time = time.perf_counter()
     wine_name = message.text.strip()
     await message.answer(f"🔍 Ищу вино: *{escape_markdown(wine_name)}\n*", parse_mode="MarkdownV2")
 
@@ -50,6 +52,8 @@ async def handle_wine_name(message: types.Message):
             text=wine_text,
             parse_mode="MarkdownV2"
         )
+        end_time = time.perf_counter()
+        logging.info(f"Ответ пользователю отправлен за {round(end_time - start_time, 2)} секунд")
 
 
 async def main():
@@ -57,6 +61,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 

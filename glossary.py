@@ -351,6 +351,7 @@ WINE_GLOSSARY = {
     "Cabernet Sauvignon": "Каберне Совиньон",
     "Merlot": "Мерло",
     "Pinot Noir": "Пино Нуар",
+    "Pansa Blanca": "Панса Бланка",
     "Syrah": "Сира",
     "Shiraz": "Шираз",
     "Grenache": "Гренаш",
@@ -932,6 +933,8 @@ REGION_TRANSLATIONS = {
     "Aragón": "Арагон",
     "Calatayud": "Calatayud",
     "Castilla y León": "Кастилия и Леон",
+    "Catalunya": "Каталония",
+    "Alella": "Алелья",
 
     "France": "Франция",
     "Bordeaux": "Бордо",

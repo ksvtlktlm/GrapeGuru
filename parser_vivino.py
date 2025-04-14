@@ -17,6 +17,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from contextlib import contextmanager
 from cache_manager import load_cached_wine, save_to_cache
 
 
@@ -183,8 +184,10 @@ def search_vivino(wine_name, driver, fallback_on_fail=True, search_timeout=40, h
             if "access denied" in drv.page_source.lower():
                 raise Exception("Обнаружена страница блокировки")
 
-            search_box = WebDriverWait(drv, 20).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, SEARCH_INPUT_SELECTOR)))
+            WebDriverWait(drv, 20).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "input[name='q']"))
+            )
+            search_box = drv.find_element(By.CSS_SELECTOR, "input[name='q']")
 
             for char in wine_name:  # Имитация ввода человеком
                 search_box.send_keys(char)
@@ -503,16 +506,23 @@ def parse_wine(wine_name, headless=False):
     - Возвращает словарь с данными о вине.
     - Параметр headless управляет режимом браузера (True — без GUI).
     """
-    # cache_key = f"{brand}___{name}"
-    # cached_data = load_cached_wine(cache_key)
-    # if cached_data:
-    #     logging.warning(f"Используются кэшированные данные для {cache_key}")
-    #     return cached_data
 
     wine_info = {}
     file_path = None
 
-    with setup_driver(headless=headless) as driver:
+    @contextmanager
+    def managed_driver():
+        driver = setup_driver(headless=headless)
+        try:
+            yield driver
+        finally:
+            try:
+                driver.quit()
+                logging.info("Драйвер корректно завершён")
+            except Exception as e:
+                logging.warning(f"Ошибка при закрытии драйвера: {e}")
+
+    with managed_driver() as driver:
         try:
             driver.get("https://www.vivino.com/")
             accept_cookies(driver)
@@ -543,7 +553,13 @@ def parse_wine(wine_name, headless=False):
 
                 cached_data = load_cached_wine(brand, name)
                 if cached_data:
-                    actual_driver.quit()
+                    # try:
+                    #     if actual_driver:
+                    #         actual_driver.quit()
+                    #         logging.info("Драйвер закрыт после использования кэша")
+                    # except Exception as e:
+                    #     logging.warning(f"Ошибка при закрытии драйвера: {e}")
+
                     logging.warning(f"Используются кэшированные данные для {brand} / {name}")
                     return cached_data
 

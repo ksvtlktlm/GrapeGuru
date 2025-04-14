@@ -5,7 +5,7 @@ IGNORED_TRANSLATION_KEYS = {
     "Rating",
     "Image",
     "Alcohol content",
-    "Region",
+    "Wine description"
 }
 
 
