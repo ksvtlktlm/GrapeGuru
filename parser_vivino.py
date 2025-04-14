@@ -503,16 +503,18 @@ def parse_wine(wine_name, headless=False):
     - Возвращает словарь с данными о вине.
     - Параметр headless управляет режимом браузера (True — без GUI).
     """
-    cached_data = load_cached_wine(wine_name)
-    if cached_data:
-        logging.warning(f"Используются кэшированные данные для {wine_name}")
-        return cached_data
+    # cache_key = f"{brand}___{name}"
+    # cached_data = load_cached_wine(cache_key)
+    # if cached_data:
+    #     logging.warning(f"Используются кэшированные данные для {cache_key}")
+    #     return cached_data
 
     wine_info = {}
+    file_path = None
+
     with setup_driver(headless=headless) as driver:
         try:
             driver.get("https://www.vivino.com/")
-
             accept_cookies(driver)
 
             wine_url, actual_driver = search_vivino(wine_name, driver, headless=headless)
@@ -538,6 +540,13 @@ def parse_wine(wine_name, headless=False):
             with open(file_path, "r", encoding="utf-8") as file:
                 soup = BeautifulSoup(file, "lxml")
                 brand, name = get_wine_brand_and_name(soup)
+
+                cached_data = load_cached_wine(brand, name)
+                if cached_data:
+                    actual_driver.quit()
+                    logging.warning(f"Используются кэшированные данные для {brand} / {name}")
+                    return cached_data
+
                 wine_info.update({
                     "Brand": brand,
                     "Name": name,
@@ -559,7 +568,7 @@ def parse_wine(wine_name, headless=False):
 
     if wine_info.get("Brand") and wine_info.get("Name"):
         try:
-            save_to_cache(wine_name, wine_info)
+            save_to_cache(brand, name, wine_info)
             logging.info(f"Данные для {wine_name} сохранены в кэш")
         except Exception as e:
             logging.error(f"Ошибка кэширования: {str(e)}")

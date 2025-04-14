@@ -2,14 +2,15 @@ import json
 import hashlib
 
 
-def get_wine_cache_key(wine_name):
-    """Создает уникальный ключ по названию вина."""
-    return hashlib.md5(wine_name.encode()).hexdigest()
+def get_wine_cache_key(brand, name):
+    """Создает уникальный ключ по бренду и названию вина."""
+    key_str = f"{brand.strip().lower()}::{name.strip().lower()}"
+    return hashlib.md5(key_str.encode()).hexdigest()
 
 
-def load_cached_wine(wine_name):
+def load_cached_wine(brand, name):
     """Загружает данные о вине из кэш-файла JSON, если они существуют."""
-    cache_key = get_wine_cache_key(wine_name)
+    cache_key = get_wine_cache_key(brand, name)
     try:
         with open("wine_cache.json", "r") as f:
             cache = json.load(f)
@@ -18,12 +19,12 @@ def load_cached_wine(wine_name):
         return None
 
 
-def save_to_cache(wine_name, data):
+def save_to_cache(brand, name, data):
     """Сохраняет данные о вине в кэш-файл JSON для последующего быстрого доступа."""
-    cache_key = get_wine_cache_key(wine_name)
+    cache_key = get_wine_cache_key(brand, name)
     try:
         with open("wine_cache.json", "r") as f:
-            cache = json.load(f) # Попытка загрузить кэш
+            cache = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {}
 
